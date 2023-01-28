@@ -1,0 +1,93 @@
+import dotenv
+import os
+import json
+from requests_toolbelt.multipart.encoder import MultipartEncoder
+import requests
+from typing import Union
+from fastapi import BackgroundTasks, FastAPI
+import time
+
+app = FastAPI()
+
+dotenv_file = dotenv.find_dotenv()
+
+###
+client_id = "9Ktnrh0oOvBF0lorlgYamcEim_-BwIuRhwVHbcwXsZo"
+email = "puglet5@mail.ru"
+password = "123456"
+url = 'http://localhost:3000'
+###
+
+
+def check_token_expire():
+    dotenv.load_dotenv(dotenv_path=dotenv_file)
+    login_time = os.getenv("TOKEN_CREATED_AT")
+    if login_time:
+        return 0 if time.time()-float(login_time) < 3600 else login()
+    else:
+        login()
+
+
+def login():
+    dotenv.load_dotenv(dotenv_path=dotenv_file)
+
+    form_data = {
+        'email': email,
+        "password": password,
+        "grant_type": "password",
+        "client_id": client_id
+    }
+    server = requests.post(
+        f'{url}{"/api/oauth/token"}', data=form_data)
+    output = json.loads(server.text)
+
+    dotenv.set_key(dotenv_file, "ACCESS_TOKEN", output["access_token"])
+    dotenv.set_key(dotenv_file, "REFRESH_TOKEN",
+                   output["refresh_token"])
+    dotenv.set_key(dotenv_file, "TOKEN_CREATED_AT",
+                   str(output["created_at"]))
+
+    return 0
+
+
+def notify(id: str, record: Union[str, None] = None, message=""):
+    print(f"id {id}, record {record}, {message}")
+
+
+def handle_processing(record_type: str, id: str):
+    return 0
+
+
+def patch_with_processed_file(id: str, file_path):
+    data = {}
+
+    files = {
+        "spectrum[file]": open(file_path, 'rb')
+    }
+
+    headers = {
+        'Authorization': f'Bearer {os.getenv("ACCESS_TOKEN")}',
+    }
+
+    server = requests.patch(f'{url}/api/v1/spectra/{id}',
+                            data=data, headers=headers, files=files)
+
+    return [server.status_code, server.text]
+
+
+@app.post("/processing/{id}", status_code=202)
+async def process_object(id: int, background_tasks: BackgroundTasks, record: Union[str, None] = None,) -> dict:
+    background_tasks.add_task(
+        check_token_expire)
+    background_tasks.add_task(
+        notify, id, record, message="some notification")
+    background_tasks.add_task(
+        patch_with_processed_file, id, "/home/puglet5/Documents/Python/свинцово-оловянистая (только карбонат свинца).csv")
+    return {
+        "message": f"Recieved processing request for {record} with id {id}"
+    }
+
+
+@app.get("/status")
+def check_status() -> dict:
+    return {0}

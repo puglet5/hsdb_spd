@@ -12,6 +12,15 @@ Heritage Science DB Spectral Data Processor
   cp .sample.env .env
 ```
 
+```bash
+  export PYTHONPATH=$PWD
+```
+
+Run celery and fast-api with honcho (see `Procfile`)
+```bash
+  honcho start
+```
+
 [Async Architecture with FastAPI, Celery, and RabbitMQ | by Suman Das | Crux Intelligence | Medium][1]
 
 

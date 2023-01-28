@@ -8,7 +8,13 @@ Heritage Science DB Spectral Data Processor
   pipenv install -r requirements.txt
 ```
 
+```bash
+  cp .sample.env .env
+```
+
 [Async Architecture with FastAPI, Celery, and RabbitMQ | by Suman Das | Crux Intelligence | Medium][1]
+
+
 [How To Install and Start Using RabbitMQ on Ubuntu 22.04][2]
 
 

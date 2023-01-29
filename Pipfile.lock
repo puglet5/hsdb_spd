@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "c368e7eee84e540e24b948387405c0c6cf5c7e1e4b09cdecec8e4e3af16a4b7e"
+            "sha256": "111f08ec09d4e7a489df2480661fc6a1919f61eecd04cd24d5a6512fe8ed936b"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -33,6 +33,14 @@
             "markers": "python_full_version >= '3.6.2'",
             "version": "==3.6.2"
         },
+        "async-timeout": {
+            "hashes": [
+                "sha256:2163e1640ddb52b7a8c80d0a67a08587e5d245cc9c553a74a847056bc2976b15",
+                "sha256:8ca1e4fcf50d07413d66d1a5e416e42cfdf5851c981d679a09851a6853383b3c"
+            ],
+            "markers": "python_version >= '3.6'",
+            "version": "==4.0.2"
+        },
         "billiard": {
             "hashes": [
                 "sha256:299de5a8da28a783d51b197d496bef4f1595dd023a93a4f59dde1886ae905547",
@@ -41,6 +49,9 @@
             "version": "==3.6.4.0"
         },
         "celery": {
+            "extras": [
+                "redis"
+            ],
             "hashes": [
                 "sha256:138420c020cd58d6707e6257b6beda91fd39af7afde5d36c6334d175302c0e14",
                 "sha256:fafbd82934d30f8a004f81e8f7a062e31413a23d444be8ee3326553915958c6d"
@@ -299,6 +310,13 @@
                 "sha256:78f4f37d8198e0627c5f1143240bb0206b8691d8d7ac6d78fee88b78733f8c4a"
             ],
             "version": "==2022.7.1"
+        },
+        "redis": {
+            "hashes": [
+                "sha256:a010f6cb7378065040a02839c3f75c7e0fb37a87116fb4a95be82a95552776c7",
+                "sha256:e6206448e2f8a432871d07d432c13ed6c2abcf6b74edb436c99752b1371be387"
+            ],
+            "version": "==4.4.2"
         },
         "requests": {
             "hashes": [

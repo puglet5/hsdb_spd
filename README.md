@@ -5,7 +5,8 @@ Heritage Science DB Spectral Data Processor
 ```bash
   pip install pipenv
   pipenv shell --python 3.10.6
-  pipenv install -r requirements.txt
+  pipenv install
+  pipenv install -d
 ```
 
 ```bash

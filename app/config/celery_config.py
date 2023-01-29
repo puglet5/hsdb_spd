@@ -11,7 +11,8 @@ def route_task(name, args, kwargs, options, task=None, **kw):
 
 
 class BaseConfig:
-    CELERY_broker_url: str = os.environ.get("CELERY_broker_url", "amqp://guest:guest@localhost:5672//")
+    CELERY_broker_url: str = os.environ.get(
+        "CELERY_broker_url", "amqp://guest:guest@localhost:5672//")
     result_backend: str = os.environ.get("result_backend", "rpc://")
 
     CELERY_TASK_QUEUES: list = (

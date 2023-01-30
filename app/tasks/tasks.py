@@ -4,6 +4,7 @@ import json
 import requests
 import time
 
+from typing import Union
 from typing import List
 from celery import shared_task
 
@@ -64,3 +65,49 @@ def get_spectrum(self, id: str):
     server = requests.get(
         f'{hsdb_url}{"/api/v1/spectra/"}{id}', headers=headers)
     return server.text
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
+             name='spectra:post_spectrum')
+def post_spectrum(sample_id, file_path):
+    data = {
+        "spectrum[sample_id]": (None, sample_id),
+    }
+
+    files = {
+        "spectrum[file]": open(file_path, 'rb')
+    }
+
+    headers = {
+        'Authorization': f'Bearer {os.getenv("ACCESS_TOKEN")}',
+    }
+
+    server = requests.post(f'{hsdb_url}{"/api/v1/spectra"}',
+                           data=data, headers=headers, files=files)
+
+    return [server.status_code, server.text]
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
+             name='spectra:patch_spectrum')
+def patch_with_processed_file(id: str, file_path):
+    data = {"status": "sucessful"}
+
+    files = {
+        "spectrum[processed_file]": open(file_path, 'rb')
+    }
+
+    headers = {
+        'Authorization': f'Bearer {os.getenv("ACCESS_TOKEN")}',
+    }
+
+    request = requests.patch(f'{hsdb_url}/api/v1/spectra/{id}',
+                             data=data, headers=headers, files=files)
+
+    return [request.status_code, request.text]
+
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
+             name='notiify')
+def notify(id: str, record: Union[str, None] = None, status="", message=""):
+    return f"id {id}, record {record}, {message}"

@@ -54,7 +54,7 @@ def list_spectra(self):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:get_spectrum')
-def get_spectrum(self, id: str):
+def get_spectrum(self, id: int):
     try:
         get_token()
         dotenv.load_dotenv(dotenv_path=dotenv_file)
@@ -90,7 +90,7 @@ def post_spectrum(sample_id, file_path):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:patch_spectrum')
-def patch_with_processed_file(id: str, file_path):
+def patch_with_processed_file(id: int, file_path):
     data = {"status": "sucessful"}
 
     files = {
@@ -109,5 +109,5 @@ def patch_with_processed_file(id: str, file_path):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='notiify')
-def notify(id: str, record: Union[str, None] = None, status="", message=""):
+def notify(id: int, record: Union[str, None] = None, status="", message=""):
     return f"id {id}, record {record}, {message}"

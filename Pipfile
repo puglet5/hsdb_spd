@@ -12,6 +12,7 @@ python-dotenv ="==0.21.1"
 celery = {extras = ["redis"], version = "*"}
 
 [dev-packages]
+watchdog = "*"
 honcho = "*"
 
 [requires]

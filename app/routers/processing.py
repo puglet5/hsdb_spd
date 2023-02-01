@@ -10,10 +10,11 @@ router = APIRouter(prefix='/processing',
 
 
 @router.post("/{id}", status_code=202)
-async def request_processing(id, record_type: Union[str, None] = None,) -> dict:
+async def request_processing(id: int, record_type: Union[str, None] = None,) -> dict:
     """
     Request spectral data processing for record in hsdb with corresponding type and id
     """
+    tools.process_spectrum.apply_async(args=[id])
     return {"message": f"Recieved processing request for {record_type} with id {id}"}
 
 

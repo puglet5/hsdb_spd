@@ -55,11 +55,11 @@ def list_spectra(self):
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:get_spectrum')
 def get_spectrum(self, id: int):
-    try:
-        get_token()
-        dotenv.load_dotenv(dotenv_path=dotenv_file)
-    except Exception as e:
-        return e
+    # try:
+    #     get_token()
+    #     dotenv.load_dotenv(dotenv_path=dotenv_file)
+    # except Exception as e:
+    #     return e
 
     headers = {'Authorization': f'Bearer {os.getenv("ACCESS_TOKEN")}'}
     server = requests.get(
@@ -90,22 +90,35 @@ def post_spectrum(sample_id, file_path):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:patch_spectrum')
-def patch_with_processed_file(id: int, file_path):
-    data = {"status": "sucessful"}
-
+def patch_with_processed_file(self, id: int, file):
     files = {
-        "spectrum[processed_file]": open(file_path, 'rb')
+        "spectrum[processed_file]": file
     }
 
     headers = {
         'Authorization': f'Bearer {os.getenv("ACCESS_TOKEN")}',
     }
 
-    request = requests.patch(f'{hsdb_url}/api/v1/spectra/{id}',
-                             data=data, headers=headers, files=files)
+    request = requests.patch(
+        f'{hsdb_url}/api/v1/spectra/{id}', headers=headers, files=files)
 
     return [request.status_code, request.text]
 
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
+             name='spectra:update_status')
+def update_status(self, id: int, status: str):
+    data = {
+        "spectrum[status]": status,
+    }
+
+    headers = {
+        'Authorization': f'Bearer {os.getenv("ACCESS_TOKEN")}',
+    }
+
+    server = requests.patch(f'{hsdb_url}{"/api/v1/spectra/"}{id}',
+                           data=data, headers=headers)
+
+    return [server.status_code, server.text]
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='notiify')

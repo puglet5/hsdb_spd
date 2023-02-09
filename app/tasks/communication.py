@@ -1,5 +1,6 @@
 import json
 import requests
+import time
 
 from typing import Union
 from typing import List
@@ -28,14 +29,15 @@ def get_token(self):
     else:
         raise Exception("Authentification failed")
 
+def login():
+    if time.time()-settings.token_created_at > 7000:
+        get_token()
+
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:list_spectra')
 def list_spectra(self):
-    try:
-        get_token()
-    except Exception as e:
-        return e
+    login()
 
     headers = {'Authorization': f'Bearer {settings.access_token}'}
     server = requests.get(
@@ -46,7 +48,7 @@ def list_spectra(self):
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:get_spectrum')
 def get_spectrum(self, id: int):
-    get_token()
+    login()
 
     headers = {'Authorization': f'Bearer {settings.access_token}'}
     server = requests.get(

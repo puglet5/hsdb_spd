@@ -1,11 +1,11 @@
 import pandas as pd
 import numpy as np
 import io
-import os
 import json
 import requests
 import csv
 import codecs
+from app.config.settings import settings
 
 from ..tasks import communication
 
@@ -55,7 +55,7 @@ def convert_dpt(file, filename):
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:process_spectrum')
 def process_spectrum(self, id: int):
-    hsdb_url = os.environ.get("HSDB_URL")
+    hsdb_url = settings.hsdb_url
     spectrum = json.loads(communication.get_spectrum(id))["spectrum"]
     file_url = f'{hsdb_url}{spectrum["file_url"]}'
     filename = spectrum["filename"]

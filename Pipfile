@@ -12,6 +12,7 @@ python-dotenv ="==0.21.1"
 celery = {extras = ["redis"], version = "==5.2.7"}
 pandas = "==1.5.3"
 numpy = "==1.21.0"
+pydantic = "*"
 
 [dev-packages]
 watchdog = "*"

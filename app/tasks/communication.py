@@ -30,7 +30,9 @@ def get_token(self):
         raise Exception("Authentification failed")
 
 def login():
-    if time.time()-settings.token_created_at > 7000:
+    if not isinstance(settings.token_created_at, int):
+        get_token()
+    elif time.time()-settings.token_created_at > 7000:
         get_token()
 
 

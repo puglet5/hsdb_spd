@@ -1,3 +1,4 @@
+# type: ignore
 from celery import current_app as current_celery_app
 from celery.result import AsyncResult
 
@@ -14,7 +15,8 @@ def create_celery():
     celery_app.conf.update(result_expires=200)
     celery_app.conf.update(result_persistent=True)
     celery_app.conf.update(worker_send_task_events=False)
-    celery_app.conf.update(worker_prefetch_multiplier=1)
+    celery_app.conf.update(worker_prefetch_multiplier=0)
+    celery_app.conf.update(max_tasks_per_child=10)
 
     return celery_app
 

@@ -1,3 +1,5 @@
+# type: ignore
+
 import os
 from functools import lru_cache
 from kombu import Queue
@@ -20,6 +22,8 @@ class BaseConfig:
     )
 
     CELERY_TASK_ROUTES = (route_task,)
+
+    CELERY_ALWAYS_EAGER = True
 
 
 class DevelopmentConfig(BaseConfig):

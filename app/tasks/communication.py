@@ -1,6 +1,7 @@
 import json
 import requests
 import time
+import io
 
 from typing import Union, List
 from celery import shared_task
@@ -81,7 +82,7 @@ def post_spectrum(sample_id, file_path):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:patch_spectrum')
-def patch_with_processed_file(self, id: int, file):
+def patch_with_processed_file(self, id: int, file: io.BytesIO):
     files = {
         "spectrum[processed_file]": file
     }
@@ -100,6 +101,20 @@ def patch_with_processed_file(self, id: int, file):
 def update_status(self, id: int, status: str):
     data = {
         "spectrum[status]": status,
+    }
+
+    headers = {
+        'Authorization': f'Bearer {settings.access_token}',
+    }
+    server = requests.patch(f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+                            data=data, headers=headers)
+    return [server.status_code, server.text]
+
+@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
+             name='spectra:update_metadata')
+def update_metadata(self, id: int, metadata: dict):
+    data = {
+        "spectrum[metadata]": json.dumps(metadata),
     }
 
     headers = {

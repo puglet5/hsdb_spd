@@ -1,20 +1,17 @@
-import pandas as pd
-import numpy as np
 import io
 import json
 import requests
 import csv
 import codecs
-from app.config.settings import settings
 
+from app.config.settings import settings
+from celery import shared_task
 from ..tasks import communication
 
-from typing import Union
-from typing import List
-from celery import shared_task
+URL = str
 
 
-def download_file(url):
+def download_file(url: URL) -> io.BytesIO:
     """
     Downloads file from given url and return it as memory buffer
     """
@@ -23,10 +20,10 @@ def download_file(url):
         file = io.BytesIO(response.content)
         return file
     except Exception as e:
-        return e
+        return e  # type: ignore
 
 
-def convert_dpt(file, filename):
+def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO:
     """
     Converts FTIR .1.dpt and .0.dpt files to .csv
     """
@@ -54,16 +51,28 @@ def convert_dpt(file, filename):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:process_spectrum')
-def process_spectrum(self, id: int):
-    hsdb_url = settings.hsdb_url
-    spectrum = json.loads(communication.get_spectrum(id))["spectrum"]
-    file_url = f'{hsdb_url}{spectrum["file_url"]}'
-    filename = spectrum["filename"]
+def process_spectrum(self, id: int) -> dict:
+    """
+    Processes passed spectrum based on its filetype
+    Filetype is defined in spectrum["format"]
+    """
+    hsdb_url: URL = settings.hsdb_url
+    spectrum: dict = json.loads(communication.get_spectrum(id))["spectrum"]
+    file_url: URL = f'{hsdb_url}{spectrum["file_url"]}'
+    filename: str = spectrum["filename"]
 
     communication.update_status(id, "ongoing")
 
     file = download_file(file_url)
-    processed_file = convert_dpt(file, filename)
+    if spectrum["format"] == "dpt":
+        try:
+            processed_file = convert_dpt(file, filename)
+        except Exception as e:
+            communication.update_status(id, "error")
+            return {"message": f"error coverting spectrum with id {id} ({str(e)})"}
+    else:
+        communication.update_status(id, "error")
+        return {"message": f"unsupported filetype for spectrum with id {id}"}
 
     communication.patch_with_processed_file(id, processed_file)
 

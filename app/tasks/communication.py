@@ -2,15 +2,14 @@ import json
 import requests
 import time
 
-from typing import Union
-from typing import List
+from typing import Union, List
 from celery import shared_task
 from app.config.settings import settings
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 5},
              name='auth:get_token')
-def get_token(self):
+def get_token(self) -> None:
     form_data = {
         'email': settings.hsdb_email,
         "password": settings.hsdb_password,
@@ -29,7 +28,8 @@ def get_token(self):
     else:
         raise Exception("Authentification failed")
 
-def login():
+
+def login() -> None:
     if not isinstance(settings.token_created_at, int):
         get_token()
     elif time.time()-settings.token_created_at > 7000:
@@ -38,7 +38,7 @@ def login():
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:list_spectra')
-def list_spectra(self):
+def list_spectra(self) -> str:
     login()
 
     headers = {'Authorization': f'Bearer {settings.access_token}'}
@@ -49,7 +49,7 @@ def list_spectra(self):
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='spectra:get_spectrum')
-def get_spectrum(self, id: int):
+def get_spectrum(self, id: int) -> str:
     login()
 
     headers = {'Authorization': f'Bearer {settings.access_token}'}
@@ -89,7 +89,6 @@ def patch_with_processed_file(self, id: int, file):
     headers = {
         'Authorization': f'Bearer {settings.access_token}',
     }
-
     request = requests.patch(
         f'{settings.hsdb_url}/api/v1/spectra/{id}', headers=headers, files=files)
 
@@ -106,14 +105,12 @@ def update_status(self, id: int, status: str):
     headers = {
         'Authorization': f'Bearer {settings.access_token}',
     }
-
     server = requests.patch(f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
                             data=data, headers=headers)
-
     return [server.status_code, server.text]
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='notiify')
-def notify(id: int, record: Union[str, None] = None, status="", message=""):
+def notify(id: int, record: Union[str, None] = None, status="", message="") -> str:
     return f"id {id}, record {record}, {message}"

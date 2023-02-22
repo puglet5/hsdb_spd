@@ -6,13 +6,17 @@ import codecs
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
+import logging
 
 from findpeaks import findpeaks
 from typing import TypedDict
+from requests import Response
 
 from app.config.settings import settings
 from celery import shared_task
 from ..tasks import communication
+
+logger = logging.getLogger(__name__)
 
 URL = str
 
@@ -45,7 +49,8 @@ def download_file(url: URL) -> io.BytesIO | None:
     """
     try:
         response = requests.get(url)
-    except:
+    except Exception as e:
+        logger.error(e)
         return None
     file: io.BytesIO = io.BytesIO(response.content)
     file.seek(0)
@@ -92,7 +97,8 @@ def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
         bio.seek(0)
 
         return bio
-    except:
+    except Exception as e:
+        logger.error(e)
         return None
 
 
@@ -122,12 +128,12 @@ def process_spectrum(self, id: int) -> dict[str, str]:
     file_url: URL = f'{hsdb_url}{spectrum["file_url"]}'
     filename: str = spectrum["filename"]
 
+    communication.update_status(id, "ongoing")
+
     file = download_file(file_url)
     if file is None:
         communication.update_status(id, "error")
         return {"message": f"Error getting spectrum file from server"}
-
-    communication.update_status(id, "ongoing")
 
     if spectrum["format"] == "dpt":
         processed_file = convert_dpt(file, filename)
@@ -142,16 +148,22 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
     processed_file.seek(0)
 
-    communication.patch_with_processed_file(id, processed_file)
+    file_patch_response: Response = communication.patch_with_processed_file(
+        id, processed_file)
 
+    metadata_patch_response: Response | None = None
     if validate_json(spectrum["metadata"]) and peak_data is not None:
         metadata = construct_metadata(spectrum["metadata"], peak_data)
         if metadata is not None:
-            communication.update_metadata(id, metadata)
+            metadata_patch_response = communication.update_metadata(
+                id, metadata)
 
     processed_file.flush()
     processed_file.seek(0)
 
-    communication.update_status(id, "successful")
-    print(validate_json(spectrum["metadata"]))
-    return {"message": f"Successfully processed spectrum with id {id}"}
+    if metadata_patch_response is not None and file_patch_response is not None:
+        communication.update_status(id, "successful")
+    else:
+        communication.update_status(id, "error")
+
+    return {"message": f"Done processing spectrum with id {id}"}

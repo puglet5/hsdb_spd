@@ -14,7 +14,7 @@ async def request_processing(id: int, record_type: Union[str, None] = None,) -> 
     """
     Request spectral data processing for record in hsdb with corresponding type and id
     """
-    tools.process_spectrum.apply_async(args=[id]) # type: ignore
+    tools.process_spectrum.delay(id)  # type: ignore
     return {"message": f"Recieved processing request for {record_type} with id {id}"}
 
 

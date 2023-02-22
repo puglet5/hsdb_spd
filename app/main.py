@@ -3,12 +3,16 @@
 import uvicorn as uvicorn
 import sys
 import os
+import logging
 
 from fastapi import FastAPI
 from app.config.celery_utils import create_celery
 from app.routers import processing
 
 sys.path.insert(0, os.path.join(os.getcwd(), 'app'))
+
+logging.config.fileConfig('logging.conf', disable_existing_loggers=False)
+logger = logging.getLogger(__name__)
 
 
 def create_app() -> FastAPI:

@@ -1,3 +1,5 @@
+# type: ignore
+
 import uvicorn as uvicorn
 import sys
 import os

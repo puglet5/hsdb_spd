@@ -14,6 +14,16 @@ from ..tasks import communication
 URL = str
 
 
+def validate_json(json_data) -> bool:
+    if isinstance(json_data, dict):
+        return True
+    try:
+        json.loads(str(json_data))
+    except (ValueError, TypeError) as err:
+        return False
+    return True
+
+
 def download_file(url: URL) -> io.BytesIO:
     """
     Download file from given url and return it as an in-memory buffer
@@ -65,9 +75,14 @@ def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO:
     return bio
 
 
-def construct_metadata(init: dict, peak_data: np.ndarray) -> dict:
+def construct_metadata(init, peak_data: np.ndarray) -> dict | None:
     peak_metadata = {"peaks": [{"position": str(i)} for i in peak_data]}
-    return {**init, **peak_metadata}
+    if isinstance(init, str):
+        return {**json.loads(init), **peak_metadata}
+    elif isinstance(init, dict):
+        return {**init, **peak_metadata}
+    else:
+        return
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
@@ -98,13 +113,17 @@ def process_spectrum(self, id: int) -> dict:
         return {"message": f"unsupported filetype for spectrum with id {id}"}
 
     processed_file.seek(0)
+
     communication.patch_with_processed_file(id, processed_file)
-    communication.update_metadata(
-        id, construct_metadata(spectrum["metadata"], peak_data))
+
+    if validate_json(spectrum["metadata"]):
+        metadata = construct_metadata(spectrum["metadata"], peak_data)
+        if metadata:
+            communication.update_metadata(id, metadata)
 
     processed_file.flush()
     processed_file.seek(0)
 
     communication.update_status(id, "successful")
-
-    return {"message": peak_data}
+    print(validate_json(spectrum["metadata"]))
+    return {"message": f"processed spectrum with id {id}"}

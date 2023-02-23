@@ -1,6 +1,5 @@
 import io
 import json
-import requests
 import csv
 import codecs
 import numpy as np
@@ -9,8 +8,9 @@ import pandas as pd
 import logging
 
 from findpeaks import findpeaks
-from typing import TypedDict
-from requests import Response
+from typing import TypedDict, Dict
+from requests import Response, get
+from os import PathLike
 
 from app.config.settings import settings
 from celery import shared_task
@@ -38,7 +38,7 @@ def validate_json(json_data) -> bool:
         return True
     try:
         json.loads(str(json_data))
-    except (ValueError, TypeError) as err:
+    except (ValueError, TypeError):
         return False
     return True
 
@@ -48,7 +48,7 @@ def download_file(url: URL) -> io.BytesIO | None:
     Download file from given url and return it as an in-memory buffer
     """
     try:
-        response = requests.get(url)
+        response: Response = get(url)
     except Exception as e:
         logger.error(e)
         return None
@@ -58,11 +58,16 @@ def download_file(url: URL) -> io.BytesIO | None:
 
 
 def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
+    """
+    Find peaks in second array of csv-like data and return as numpy array.
+
+    Peaks are filtered by their rank and height returned by findpeaks.
+    Return None if none were found
+    """
     data = np.loadtxt(file, delimiter=",")[:, 1]
     data = data / np.max(data)
     fp = findpeaks(method='topology', lookahead=2, denoise="bilateral")
-    result = fp.fit(data)
-    if result is not None:
+    if (result := fp.fit(data)) is not None:
         df: pd.DataFrame = result["df"]
     else:
         return None
@@ -88,7 +93,7 @@ def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
             writer.writerow(row)
 
         sio.seek(0)
-        bio = io.BytesIO(sio.read().encode('utf8'))
+        bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
 
         sio.flush()
         sio.seek(0)
@@ -106,7 +111,8 @@ def construct_metadata(init, peak_data: npt.NDArray) -> dict | None:
     """
     Construct JSON object from existing spectrum metadata and peak metadata from processing
     """
-    peak_metadata = {"peaks": [{"position": str(i)} for i in peak_data]}
+    peak_metadata: Dict[str, list[dict[str, str]]] = {
+        "peaks": [{"position": str(i)} for i in peak_data]}
     if isinstance(init, str):
         return {**json.loads(init), **peak_metadata}
     elif isinstance(init, dict):
@@ -123,21 +129,23 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
     Filetype is defined in spectrum["format"]. Supported filetypes: .dpt
     """
-    hsdb_url: URL = settings.hsdb_url
-    spectrum: Spectrum = json.loads(communication.get_spectrum(id))["spectrum"]
-    file_url: URL = f'{hsdb_url}{spectrum["file_url"]}'
+    if (raw_spectrum := communication.get_spectrum(id)) is not None:
+        spectrum: Spectrum = json.loads(raw_spectrum)["spectrum"]
+    else:
+        communication.update_status(id, "error")
+        return {"message": f"Error retrieving spectrum with {id}"}
+
+    file_url: URL = f'{settings.hsdb_url}{spectrum["file_url"]}'
     filename: str = spectrum["filename"]
 
     communication.update_status(id, "ongoing")
 
-    file = download_file(file_url)
-    if file is None:
+    if (file := download_file(file_url)) is None:
         communication.update_status(id, "error")
         return {"message": f"Error getting spectrum file from server"}
 
     if spectrum["format"] == "dpt":
-        processed_file = convert_dpt(file, filename)
-        if processed_file is not None:
+        if (processed_file := convert_dpt(file, filename)) is not None:
             peak_data = find_peaks(processed_file)
         else:
             communication.update_status(id, "error")
@@ -148,20 +156,20 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
     processed_file.seek(0)
 
-    file_patch_response: Response = communication.patch_with_processed_file(
+    file_patch_response: Response | None = communication.patch_with_processed_file(
         id, processed_file)
 
     metadata_patch_response: Response | None = None
     if validate_json(spectrum["metadata"]) and peak_data is not None:
-        metadata = construct_metadata(spectrum["metadata"], peak_data)
-        if metadata is not None:
+        if (metadata := construct_metadata(spectrum["metadata"], peak_data)) is not None:
             metadata_patch_response = communication.update_metadata(
                 id, metadata)
 
     processed_file.flush()
     processed_file.seek(0)
 
-    if metadata_patch_response is not None and file_patch_response is not None:
+    if metadata_patch_response is not None \
+            and file_patch_response is not None:
         communication.update_status(id, "successful")
     else:
         communication.update_status(id, "error")

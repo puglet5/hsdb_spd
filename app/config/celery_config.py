@@ -1,5 +1,3 @@
-# type: ignore
-
 import os
 from functools import lru_cache
 from kombu import Queue
@@ -15,14 +13,11 @@ def route_task(name, args, kwargs, options, task=None, **kw):
 class BaseConfig:
     CELERY_BROKER_URL = 'redis://localhost:6379'
     CELERY_RESULT_BACKEND = 'redis://localhost:6379'
-
-    CELERY_TASK_QUEUES: list = (
+    CELERY_TASK_QUEUES: list = [
         Queue("celery"),
         Queue("spectra"),
-    )
-
+    ]
     CELERY_TASK_ROUTES = (route_task,)
-
     CELERY_ALWAYS_EAGER = True
 
 

@@ -3,10 +3,10 @@
 Heritage Science DB Spectral Data Processor
 
 ```bash
-  pip install pipenv
-  pipenv shell --python 3.8
+  sudo apt install pipenv
+  pipenv shell
   pipenv install
-  pipenv install -d
+  pipenv install --dev
 ```
 
 ```bash
@@ -21,7 +21,3 @@ Run celery and fast-api with honcho (see `Procfile`)
 ```bash
   honcho start
 ```
-
-[Async Architecture with FastAPI, Celery, and RabbitMQ | by Suman Das | Crux Intelligence | Medium][1]
-
-[1]: https://medium.com/cuddle-ai/async-architecture-with-fastapi-celery-and-rabbitmq-c7d02903037

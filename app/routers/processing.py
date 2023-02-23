@@ -1,12 +1,11 @@
-from app.tasks import communication, tools
-import json
+from app.tasks import tools
 
 from fastapi import APIRouter
 from typing import Union
 from app.config.celery_utils import get_task_info
 
-router = APIRouter(prefix='/processing',
-                   tags=['Spectrum, Processing'], responses={404: {"description": "Not found"}})
+router: APIRouter = APIRouter(prefix='/processing',
+                              tags=['Spectrum, Processing'], responses={404: {"description": "Not found"}})
 
 
 @router.post("/{id}", status_code=202)

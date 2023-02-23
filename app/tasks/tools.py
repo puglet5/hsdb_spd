@@ -62,7 +62,7 @@ def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
     data = data / np.max(data)
     fp = findpeaks(method='topology', lookahead=2, denoise="bilateral")
     result = fp.fit(data)
-    if result:
+    if result is not None:
         df: pd.DataFrame = result["df"]
     else:
         return None

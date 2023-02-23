@@ -1,6 +1,7 @@
 from pydantic import BaseSettings
 from typing import Optional
 
+
 class Settings(BaseSettings):
     hsdb_url: str
     hsdb_email: str
@@ -11,7 +12,8 @@ class Settings(BaseSettings):
     token_created_at: Optional[int] = None
 
     class Config:
-        env_file = ".env"
-        env_file_encoding = 'utf-8'
+        env_file: str = ".env"
+        env_file_encoding: str = 'utf-8'
 
-settings = Settings()
+
+settings: Settings = Settings()

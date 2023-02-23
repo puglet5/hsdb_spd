@@ -71,7 +71,10 @@ def get_spectrum(self, id: int) -> str | None:
     login()
 
     try:
-        headers = {'Authorization': f'Bearer {settings.access_token}'}
+        headers = {
+            'Authorization': f'Bearer {settings.access_token}'
+        }
+
         response = requests.get(
             f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}', headers=headers)
         return response.text
@@ -161,6 +164,6 @@ def update_metadata(self, id: int, metadata: dict) -> Response | None:
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
-             name='notiify')
+             name='notify')
 def notify(id: int, record: Union[str, None] = None, status="", message="") -> str:
     return f"id {id}, record {record}, {message}"

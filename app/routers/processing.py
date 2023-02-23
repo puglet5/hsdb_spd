@@ -1,7 +1,6 @@
 from app.tasks import tools
 
 from fastapi import APIRouter
-from typing import Union
 from app.config.celery_utils import get_task_info
 
 router: APIRouter = APIRouter(prefix='/processing',
@@ -9,7 +8,7 @@ router: APIRouter = APIRouter(prefix='/processing',
 
 
 @router.post("/{id}", status_code=202)
-async def request_processing(id: int, record_type: Union[str, None] = None,) -> dict:
+async def request_processing(id: int, record_type: str | None = None,) -> dict:
     """
     Request spectral data processing for record in hsdb with corresponding type and id
     """

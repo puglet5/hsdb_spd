@@ -1,5 +1,4 @@
 from pydantic import BaseSettings
-from typing import Optional
 
 
 class Settings(BaseSettings):
@@ -7,9 +6,9 @@ class Settings(BaseSettings):
     hsdb_email: str
     hsdb_password: str
     hsdb_client_id: str
-    access_token: Optional[str] = None
-    refresh_token: Optional[str] = None
-    token_created_at: Optional[int] = None
+    access_token: str | None = None
+    refresh_token: str | None = None
+    token_created_at: int | None = None
 
     class Config:
         env_file: str = ".env"

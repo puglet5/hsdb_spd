@@ -4,7 +4,6 @@ import time
 import io
 import logging
 
-from typing import Union, List
 from requests import Response
 from celery import shared_task
 from app.config.settings import settings
@@ -165,5 +164,5 @@ def update_metadata(self, id: int, metadata: dict) -> Response | None:
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
              name='notify')
-def notify(id: int, record: Union[str, None] = None, status="", message="") -> str:
+def notify(id: int, record: str | None = None, status="", message="") -> str:
     return f"id {id}, record {record}, {message}"

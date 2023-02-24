@@ -65,7 +65,6 @@ def validate_csv(file: BytesIO, filename: str) -> BytesIO | None:
         bio: BytesIO = BytesIO(sio.read().encode('utf8'))
 
         sio.close()
-        file.close()
 
         bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
         bio.seek(0)
@@ -116,7 +115,6 @@ def convert_dpt(file: BytesIO, filename: str) -> BytesIO | None:
         bio: BytesIO = BytesIO(sio.read().encode('utf8'))
 
         sio.close()
-        file.close()
 
         bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
         bio.seek(0)
@@ -156,7 +154,6 @@ def convert_dat(file: BytesIO, filename: str) -> BytesIO | None:
         bio: BytesIO = BytesIO(sio.read().encode('utf8'))
 
         sio.close()
-        file.close()
 
         bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
         bio.seek(0)

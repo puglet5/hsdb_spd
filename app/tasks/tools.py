@@ -253,7 +253,8 @@ def process_spectrum(self, id: int) -> dict[str, str]:
     if metadata_patch_response is None \
             or file_patch_response is None:
         communication.update_status(id, "error")
+        return {"message": f"Error uploading processing data to spectrum with id {id}"}
 
     communication.update_status(id, "successful")
 
-    return {"message": f"Done processing spectrum with id {id}"}
+    return {"message": f"Done processing for spectrum with id {id}"}

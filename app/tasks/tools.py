@@ -58,35 +58,39 @@ def download_file(url: URL) -> io.BytesIO | None:
 
 
 def validate_csv(file: io.BytesIO, filename: str) -> io.BytesIO | None:
-    dialect = csv.Sniffer().sniff(file.read(1024).decode('utf-8'))
-    file.seek(0)
-    has_header: bool = csv.Sniffer().has_header(file.read(1024).decode('utf-8'))
-    file.seek(0)
-    if has_header:
-        file.close()
-        return None
-
-    csv_data = csv.reader(codecs.iterdecode(file, 'utf-8'), dialect)
-
-    sio: io.StringIO = io.StringIO()
-
-    writer = csv.writer(sio, dialect='excel', delimiter=',')
-    for row in csv_data:
-        if row.count(',') + 1 > 2:
-            sio.close()
+    try:
+        dialect = csv.Sniffer().sniff(file.read(1024).decode('utf-8'))
+        file.seek(0)
+        has_header: bool = csv.Sniffer().has_header(file.read(1024).decode('utf-8'))
+        file.seek(0)
+        if has_header:
+            file.close()
             return None
-        writer.writerow(row)
 
-    sio.seek(0)
-    bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
+        csv_data = csv.reader(codecs.iterdecode(file, 'utf-8'), dialect)
 
-    sio.close()
-    file.close()
+        sio: io.StringIO = io.StringIO()
 
-    bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
-    bio.seek(0)
+        writer = csv.writer(sio, dialect='excel', delimiter=',')
+        for row in csv_data:
+            if row.count(',') + 1 > 2:
+                sio.close()
+                return None
+            writer.writerow(row)
 
-    return bio
+        sio.seek(0)
+        bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
+
+        sio.close()
+        file.close()
+
+        bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
+        bio.seek(0)
+
+        return bio
+    except Exception as e:
+        logger.error(e)
+        return None
 
 
 def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
@@ -96,17 +100,21 @@ def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
     Peaks are filtered by their rank and height returned by findpeaks.
     Return None if none were found
     """
-    data = np.loadtxt(file, delimiter=",")[:, 1]
-    data = data / np.max(data)
-    fp = findpeaks(method='topology', lookahead=2, denoise="bilateral")
-    if (result := fp.fit(data)) is not None:
-        df: pd.DataFrame = result["df"]
-    else:
-        return None
+    try:
+        data = np.loadtxt(file, delimiter=",")[:, 1]
+        data = data / np.max(data)
+        fp = findpeaks(method='topology', lookahead=2, denoise="bilateral")
+        if (result := fp.fit(data)) is not None:
+            df: pd.DataFrame = result["df"]
+        else:
+            return None
 
-    filtered_pos: npt.NDArray = df.query('peak == True & rank != 0 & rank <= 40 & y >= 0.03')[
-        "x"].to_numpy()
-    return filtered_pos
+        filtered_pos: npt.NDArray = df.query('peak == True & rank != 0 & rank <= 40 & y >= 0.005')[
+            "x"].to_numpy()
+        return filtered_pos
+    except Exception as e:
+        logger.error(e)
+        return None
 
 
 def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
@@ -137,6 +145,46 @@ def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
         return None
 
 
+def convert_dat(file: io.BytesIO, filename: str) -> io.BytesIO | None:
+    """
+    Convert Bruker's Tracer XRF .dat files to .csv
+    """
+    try:
+        line_count: int = sum(1 for line in file.readlines() if line.rstrip())
+        file.seek(0)
+
+        x_range: list[int] = [0, 40]
+        x_linspace = np.linspace(x_range[0], x_range[1], line_count-1)
+        counts = []
+
+        with file as f:
+            # [float(s) for s in f.readline().split()]
+            header = f.readline()
+            for line in f:
+                counts.append(float(line.strip()))
+
+        output = np.vstack((x_linspace, np.array(counts))).T
+
+        sio: io.StringIO = io.StringIO()
+        csvWriter = csv.writer(sio, delimiter=',')
+        csvWriter.writerows(output)
+
+        sio.seek(0)
+
+        bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
+
+        sio.close()
+        file.close()
+
+        bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
+        bio.seek(0)
+
+        return bio
+    except Exception as e:
+        logger.error(e)
+        return None
+
+
 def construct_metadata(init, peak_data: npt.NDArray) -> dict | None:
     """
     Construct JSON object from existing spectrum metadata and peak metadata from processing
@@ -153,7 +201,8 @@ def construct_metadata(init, peak_data: npt.NDArray) -> dict | None:
 
 dispatch: dict[str, Callable] = {
     "dpt": convert_dpt,
-    "csv": validate_csv
+    "csv": validate_csv,
+    "dat": convert_dat
 }
 
 
@@ -202,8 +251,8 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
     processed_file.close()
 
-    if metadata_patch_response is not None \
-            or file_patch_response is not None:
+    if metadata_patch_response is None \
+            or file_patch_response is None:
         communication.update_status(id, "error")
 
     communication.update_status(id, "successful")

@@ -1,4 +1,4 @@
-from app.tasks import tools
+from app.tasks import processing
 
 from fastapi import APIRouter
 from app.config.celery_utils import get_task_info
@@ -12,7 +12,7 @@ async def request_processing(id: int, record_type: str | None = None,) -> dict:
     """
     Request spectral data processing for record in hsdb with corresponding type and id
     """
-    tools.process_spectrum.delay(id)  # type: ignore
+    processing.process_spectrum.delay(id)  # type: ignore
     return {"message": f"Recieved processing request for {record_type} with id {id}"}
 
 

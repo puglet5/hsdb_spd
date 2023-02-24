@@ -1,4 +1,3 @@
-import io
 import json
 import csv
 import codecs
@@ -11,6 +10,7 @@ from findpeaks import findpeaks
 from typing import TypedDict, Any
 from requests import Response, get
 from collections.abc import Callable
+from io import BytesIO, StringIO
 
 from app.config.settings import settings
 from celery import shared_task
@@ -33,7 +33,7 @@ class Spectrum(TypedDict):
     metadata: str | dict | None
 
 
-def validate_json(json_data) -> bool:
+def validate_json(json_data: Any) -> bool:
     if isinstance(json_data, dict):
         return True
     try:
@@ -43,7 +43,7 @@ def validate_json(json_data) -> bool:
     return True
 
 
-def download_file(url: URL) -> io.BytesIO | None:
+def download_file(url: URL) -> BytesIO | None:
     """
     Download file from given url and return it as an in-memory buffer
     """
@@ -52,12 +52,12 @@ def download_file(url: URL) -> io.BytesIO | None:
     except Exception as e:
         logger.error(e)
         return None
-    file: io.BytesIO = io.BytesIO(response.content)
+    file: BytesIO = BytesIO(response.content)
     file.seek(0)
     return file
 
 
-def validate_csv(file: io.BytesIO, filename: str) -> io.BytesIO | None:
+def validate_csv(file: BytesIO, filename: str) -> BytesIO | None:
     try:
         dialect = csv.Sniffer().sniff(file.read(1024).decode('utf-8'))
         file.seek(0)
@@ -69,7 +69,7 @@ def validate_csv(file: io.BytesIO, filename: str) -> io.BytesIO | None:
 
         csv_data = csv.reader(codecs.iterdecode(file, 'utf-8'), dialect)
 
-        sio: io.StringIO = io.StringIO()
+        sio: StringIO = StringIO()
 
         writer = csv.writer(sio, dialect='excel', delimiter=',')
         for row in csv_data:
@@ -79,7 +79,7 @@ def validate_csv(file: io.BytesIO, filename: str) -> io.BytesIO | None:
             writer.writerow(row)
 
         sio.seek(0)
-        bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
+        bio: BytesIO = BytesIO(sio.read().encode('utf8'))
 
         sio.close()
         file.close()
@@ -93,7 +93,7 @@ def validate_csv(file: io.BytesIO, filename: str) -> io.BytesIO | None:
         return None
 
 
-def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
+def find_peaks(file: BytesIO) -> npt.NDArray | None:
     """
     Find peaks in second array of csv-like data and return as numpy array.
 
@@ -102,9 +102,8 @@ def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
     """
     try:
         data = np.loadtxt(file, delimiter=",")[:, 1]
-        data = data / np.max(data)
         fp = findpeaks(method='topology', lookahead=2, denoise="bilateral")
-        if (result := fp.fit(data)) is not None:
+        if (result := fp.fit(data / np.max(data))) is not None:
             df: pd.DataFrame = result["df"]
         else:
             return None
@@ -117,21 +116,21 @@ def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
         return None
 
 
-def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
+def convert_dpt(file: BytesIO, filename: str) -> BytesIO | None:
     """
     Convert FTIR .1.dpt and .0.dpt files to .csv
     """
     try:
         csv_data = csv.reader(codecs.iterdecode(file, 'utf-8'))
 
-        sio: io.StringIO = io.StringIO()
+        sio: StringIO = StringIO()
 
         writer = csv.writer(sio, dialect='excel', delimiter=',')
         for row in csv_data:
             writer.writerow(row)
 
         sio.seek(0)
-        bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
+        bio: BytesIO = BytesIO(sio.read().encode('utf8'))
 
         sio.close()
         file.close()
@@ -145,7 +144,7 @@ def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
         return None
 
 
-def convert_dat(file: io.BytesIO, filename: str) -> io.BytesIO | None:
+def convert_dat(file: BytesIO, filename: str) -> BytesIO | None:
     """
     Convert Bruker's Tracer XRF .dat files to .csv
     """
@@ -155,23 +154,23 @@ def convert_dat(file: io.BytesIO, filename: str) -> io.BytesIO | None:
 
         x_range: list[int] = [0, 40]
         x_linspace = np.linspace(x_range[0], x_range[1], line_count-1)
-        counts = []
+        y_counts: list[float] = []
 
         with file as f:
             # [float(s) for s in f.readline().split()]
-            header = f.readline()
+            header: bytes = f.readline()
             for line in f:
-                counts.append(float(line.strip()))
+                y_counts.append(float(line.strip()))
 
-        output = np.vstack((x_linspace, np.array(counts))).T
+        output = np.vstack((x_linspace, np.array(y_counts))).T
 
-        sio: io.StringIO = io.StringIO()
+        sio: StringIO = StringIO()
         csvWriter = csv.writer(sio, delimiter=',')
         csvWriter.writerows(output)
 
         sio.seek(0)
 
-        bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
+        bio: BytesIO = BytesIO(sio.read().encode('utf8'))
 
         sio.close()
         file.close()

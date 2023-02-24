@@ -8,9 +8,9 @@ import pandas as pd
 import logging
 
 from findpeaks import findpeaks
-from typing import TypedDict, Dict
+from typing import TypedDict, Any
 from requests import Response, get
-from os import PathLike
+from collections.abc import Callable
 
 from app.config.settings import settings
 from celery import shared_task
@@ -57,6 +57,38 @@ def download_file(url: URL) -> io.BytesIO | None:
     return file
 
 
+def validate_csv(file: io.BytesIO, filename: str) -> io.BytesIO | None:
+    dialect = csv.Sniffer().sniff(file.read(1024).decode('utf-8'))
+    file.seek(0)
+    has_header: bool = csv.Sniffer().has_header(file.read(1024).decode('utf-8'))
+    file.seek(0)
+    if has_header:
+        file.close()
+        return None
+
+    csv_data = csv.reader(codecs.iterdecode(file, 'utf-8'), dialect)
+
+    sio: io.StringIO = io.StringIO()
+
+    writer = csv.writer(sio, dialect='excel', delimiter=',')
+    for row in csv_data:
+        if row.count(',') + 1 > 2:
+            sio.close()
+            return None
+        writer.writerow(row)
+
+    sio.seek(0)
+    bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
+
+    sio.close()
+    file.close()
+
+    bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
+    bio.seek(0)
+
+    return bio
+
+
 def find_peaks(file: io.BytesIO) -> npt.NDArray | None:
     """
     Find peaks in second array of csv-like data and return as numpy array.
@@ -83,8 +115,6 @@ def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
     """
     try:
         csv_data = csv.reader(codecs.iterdecode(file, 'utf-8'))
-        file.flush()
-        file.seek(0)
 
         sio: io.StringIO = io.StringIO()
 
@@ -95,8 +125,8 @@ def convert_dpt(file: io.BytesIO, filename: str) -> io.BytesIO | None:
         sio.seek(0)
         bio: io.BytesIO = io.BytesIO(sio.read().encode('utf8'))
 
-        sio.flush()
-        sio.seek(0)
+        sio.close()
+        file.close()
 
         bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
         bio.seek(0)
@@ -111,7 +141,7 @@ def construct_metadata(init, peak_data: npt.NDArray) -> dict | None:
     """
     Construct JSON object from existing spectrum metadata and peak metadata from processing
     """
-    peak_metadata: Dict[str, list[dict[str, str]]] = {
+    peak_metadata: dict[str, list[dict[str, str]]] = {
         "peaks": [{"position": str(i)} for i in peak_data]}
     if isinstance(init, str):
         return {**json.loads(init), **peak_metadata}
@@ -119,6 +149,12 @@ def construct_metadata(init, peak_data: npt.NDArray) -> dict | None:
         return {**init, **peak_metadata}
     else:
         return None
+
+
+dispatch: dict[str, Callable] = {
+    "dpt": convert_dpt,
+    "csv": validate_csv
+}
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
@@ -129,14 +165,14 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
     Filetype is defined in spectrum["format"]. Supported filetypes: .dpt
     """
-    if (raw_spectrum := communication.get_spectrum(id)) is not None:
-        spectrum: Spectrum = json.loads(raw_spectrum)["spectrum"]
-    else:
+    if (raw_spectrum := communication.get_spectrum(id)) is None:
         communication.update_status(id, "error")
         return {"message": f"Error retrieving spectrum with {id}"}
+    spectrum: Spectrum = json.loads(raw_spectrum)["spectrum"]
 
     file_url: URL = f'{settings.hsdb_url}{spectrum["file_url"]}'
     filename: str = spectrum["filename"]
+    filetype: str = spectrum["format"]
 
     communication.update_status(id, "ongoing")
 
@@ -144,20 +180,19 @@ def process_spectrum(self, id: int) -> dict[str, str]:
         communication.update_status(id, "error")
         return {"message": f"Error getting spectrum file from server"}
 
-    if spectrum["format"] == "dpt":
-        if (processed_file := convert_dpt(file, filename)) is not None:
-            peak_data = find_peaks(processed_file)
-        else:
-            communication.update_status(id, "error")
-            return {"message": f"Error coverting spectrum with id {id}"}
-    else:
+    if filetype not in dispatch:
         communication.update_status(id, "error")
         return {"message": f"Unsupported filetype for spectrum with id {id}"}
+    if (processed_file := dispatch[filetype](file, filename)) is None:
+        communication.update_status(id, "error")
+        return {"message": f"Error coverting spectrum with id {id}"}
+    peak_data = find_peaks(processed_file)
 
     processed_file.seek(0)
 
-    file_patch_response: Response | None = communication.patch_with_processed_file(
-        id, processed_file)
+    file_patch_response: Response | None = \
+        communication.patch_with_processed_file(
+            id, processed_file)
 
     metadata_patch_response: Response | None = None
     if validate_json(spectrum["metadata"]) and peak_data is not None:
@@ -165,13 +200,12 @@ def process_spectrum(self, id: int) -> dict[str, str]:
             metadata_patch_response = communication.update_metadata(
                 id, metadata)
 
-    processed_file.flush()
-    processed_file.seek(0)
+    processed_file.close()
 
     if metadata_patch_response is not None \
-            and file_patch_response is not None:
-        communication.update_status(id, "successful")
-    else:
+            or file_patch_response is not None:
         communication.update_status(id, "error")
+
+    communication.update_status(id, "successful")
 
     return {"message": f"Done processing spectrum with id {id}"}

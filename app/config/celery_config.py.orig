@@ -11,14 +11,14 @@ def route_task(name, args, kwargs, options, task=None, **kw):
 
 
 class BaseConfig:
-    CELERY_broker_url = 'redis://localhost:6379'
-    result_backend = 'redis://localhost:6379'
+    CELERY_BROKER_URL = 'redis://localhost:6379'
+    CELERY_RESULT_BACKEND = 'redis://localhost:6379'
     CELERY_TASK_QUEUES: list = [
         Queue("celery"),
         Queue("spectra"),
     ]
     CELERY_TASK_ROUTES = (route_task,)
-    task_always_eager = True
+    CELERY_ALWAYS_EAGER = True
 
 
 class DevelopmentConfig(BaseConfig):

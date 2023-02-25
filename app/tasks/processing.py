@@ -8,12 +8,12 @@ from collections.abc import Callable
 from app.config.settings import settings
 from celery import shared_task
 from ..tasks import communication
-from ..tools.converters import *
+from typing import TypeAlias
+from ..tools.converters import construct_metadata, convert_dat, convert_dpt, validate_csv, validate_json, find_peaks, download_file
+
+URL: TypeAlias = str
 
 logger = logging.getLogger(__name__)
-
-URL = str
-
 
 class Spectrum(TypedDict):
     file_url: str

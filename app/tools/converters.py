@@ -7,13 +7,13 @@ import pandas as pd
 import logging
 
 from findpeaks import findpeaks
-from typing import Any
+from typing import Any, TypeAlias
 from requests import Response, get
 from io import BytesIO, StringIO
 
 logger = logging.getLogger(__name__)
 
-URL = str
+URL: TypeAlias = str
 
 
 def validate_json(json_data: Any) -> bool:

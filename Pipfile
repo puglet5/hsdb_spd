@@ -19,6 +19,7 @@ findpeaks = "*"
 black = "*"
 watchdog = "*"
 honcho = "*"
+bandit = "*"
 
 [requires]
 python_version = "3.10"

@@ -18,7 +18,6 @@ class BaseConfig:
         Queue("spectra"),
     ]
     CELERY_TASK_ROUTES = (route_task,)
-    task_always_eager = True
 
 
 class DevelopmentConfig(BaseConfig):

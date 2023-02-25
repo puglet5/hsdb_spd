@@ -34,19 +34,15 @@ def get_token(self) -> None:
         settings.refresh_token = token_params["refresh_token"]
         settings.token_created_at = token_params["created_at"]
     else:
-        raise Exception("Authentification failed")
+        raise Exception(f"Authentification failed (response status: {response.status_code})")
 
 
 def login() -> None:
-    token_exists: bool = settings.token_created_at is not None
-    if settings.token_created_at is not None:
-        token_expired: bool = True if int(time.time(
-        ))-settings.token_created_at > 7200 else False
-
-        if token_expired | (not token_exists):
-            get_token()
-    else:
+    if settings.token_created_at is None:
         get_token()
+    elif int(time.time())-settings.token_created_at > 7000:
+        get_token()
+    return None
 
 
 @shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},

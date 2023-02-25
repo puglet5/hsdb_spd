@@ -197,14 +197,3 @@ def update_metadata(self, id: int, metadata: dict) -> Response | None:
     except Exception as e:
         logger.error(e)
         return None
-
-
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 0},
-    name="notify",
-)
-def notify(id: int, record: str | None = None, status="", message="") -> str:
-    return f"id {id}, record {record}, {message}"

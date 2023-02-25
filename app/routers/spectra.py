@@ -16,8 +16,12 @@ async def request_processing(
     """
     Request spectral data processing for record in hsdb with corresponding type and id
     """
-    processing.process_spectrum.delay(id)  # type: ignore
-    return {"message": f"Recieved processing request for {record_type} with id {id}"}
+    task = processing.process_spectrum.delay(id)  # type: ignore
+    print(task)
+    return {
+        "message": f"Recieved processing request for {record_type} with id {id}",
+        "task": {"id": f"{task}"},
+    }
 
 
 @router.get("/processing/status/{task_id}")

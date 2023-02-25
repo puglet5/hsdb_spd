@@ -13,12 +13,14 @@ from ..tools.converters import (
     construct_metadata,
     convert_dat,
     convert_dpt,
+    convert_mon,
     convert_spectable,
     validate_csv,
     validate_json,
     find_peaks,
     download_file,
     convert_spectable,
+    convert_txt,
 )
 
 URL: TypeAlias = str
@@ -43,6 +45,8 @@ dispatch: dict[str, Callable] = {
     "csv": validate_csv,
     "dat": convert_dat,
     "spectable": convert_spectable,
+    "mon": convert_mon,
+    "txt": convert_txt,
 }
 
 

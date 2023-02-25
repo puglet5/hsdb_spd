@@ -216,3 +216,60 @@ def convert_spectable(file: BytesIO, filename: str) -> BytesIO | None:
     except Exception as e:
         logger.error(e)
         return None
+
+
+def convert_mon(file: BytesIO, filename: str) -> BytesIO | None:
+    try:
+        data: list[list[str]] = []
+        metadata: list[list[str]] = []
+        with file as f:
+            for line in f.readlines():
+                decoded_line: str = line.decode("Windows 1251")
+                if decoded_line.strip() and not decoded_line.startswith("//"):
+                    print(decoded_line)
+                    re_line: str = f"{re.sub(' +', ' ', decoded_line).strip()}".replace(
+                        " ", ","
+                    )
+                    data.append(re_line.split(","))
+                else:
+                    metadata.append([decoded_line])
+
+        sio: StringIO = StringIO()
+        csvWriter = csv.writer(sio, delimiter=",")
+        csvWriter.writerows(data)
+
+        sio.seek(0)
+        bio: BytesIO = BytesIO(sio.read().encode("utf8"))
+
+        sio.close()
+
+        bio.name = f'{filename.rsplit(".", 1)[0]}.csv'
+        bio.seek(0)
+
+        return bio
+    except Exception as e:
+        logger.error(e)
+        return None
+
+
+def convert_txt(file: BytesIO, filename: str) -> BytesIO | None:
+    try:
+        csv_data = csv.reader(codecs.iterdecode(file, "utf-8"), delimiter="\t")
+
+        sio: StringIO = StringIO()
+
+        writer = csv.writer(sio, dialect="excel", delimiter=",")
+        writer.writerows(csv_data)
+
+        sio.seek(0)
+        bio: BytesIO = BytesIO(sio.read().encode("utf8"))
+
+        sio.close()
+
+        bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
+        bio.seek(0)
+
+        return bio
+    except Exception as e:
+        logger.error(e)
+        return None

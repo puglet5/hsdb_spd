@@ -9,11 +9,22 @@ from app.config.settings import settings
 from celery import shared_task
 from ..tasks import communication
 from typing import TypeAlias
-from ..tools.converters import construct_metadata, convert_dat, convert_dpt, validate_csv, validate_json, find_peaks, download_file
+from ..tools.converters import (
+    construct_metadata,
+    convert_dat,
+    convert_dpt,
+    convert_spectable,
+    validate_csv,
+    validate_json,
+    find_peaks,
+    download_file,
+    convert_spectable,
+)
 
 URL: TypeAlias = str
 
 logger = logging.getLogger(__name__)
+
 
 class Spectrum(TypedDict):
     file_url: str
@@ -30,12 +41,18 @@ class Spectrum(TypedDict):
 dispatch: dict[str, Callable] = {
     "dpt": convert_dpt,
     "csv": validate_csv,
-    "dat": convert_dat
+    "dat": convert_dat,
+    "spectable": convert_spectable,
 }
 
 
-@shared_task(bind=True, autoretry_for=(Exception,), retry_backoff=True, retry_kwargs={"max_retries": 0},
-             name='spectra:process_spectrum')
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 0},
+    name="spectra:process_spectrum",
+)
 def process_spectrum(self, id: int) -> dict[str, str]:
     """
     Process passed spectrum based on its filetype
@@ -67,20 +84,20 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
     processed_file.seek(0)
 
-    file_patch_response: Response | None = \
-        communication.patch_with_processed_file(
-            id, processed_file)
+    file_patch_response: Response | None = communication.patch_with_processed_file(
+        id, processed_file
+    )
 
     metadata_patch_response: Response | None = None
     if validate_json(spectrum["metadata"]) and peak_data is not None:
-        if (metadata := construct_metadata(spectrum["metadata"], peak_data)) is not None:
-            metadata_patch_response = communication.update_metadata(
-                id, metadata)
+        if (
+            metadata := construct_metadata(spectrum["metadata"], peak_data)
+        ) is not None:
+            metadata_patch_response = communication.update_metadata(id, metadata)
 
     processed_file.close()
 
-    if metadata_patch_response is None \
-            or file_patch_response is None:
+    if metadata_patch_response is None or file_patch_response is None:
         communication.update_status(id, "error")
         return {"message": f"Error uploading processing data to spectrum with id {id}"}
 

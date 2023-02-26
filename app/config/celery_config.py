@@ -11,7 +11,7 @@ def route_task(name, args, kwargs, options, task=None, **kw):
 
 
 class BaseConfig:
-    CELERY_broker_url = "redis://localhost:6379"
+    broker_url = "redis://localhost:6379"
     result_backend = "redis://localhost:6379"
     CELERY_TASK_QUEUES: list = [
         Queue("celery"),

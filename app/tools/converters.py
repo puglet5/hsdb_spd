@@ -1,16 +1,16 @@
-import json
-import csv
 import codecs
+import csv
+import json
+import logging
+import re
+from io import BytesIO, StringIO
+from typing import Any, TypeAlias
+
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-import logging
-import re
-
 from findpeaks import findpeaks
-from typing import Any, TypeAlias
 from requests import Response, get
-from io import BytesIO, StringIO
 
 logger = logging.getLogger(__name__)
 
@@ -93,8 +93,8 @@ def find_peaks(file: BytesIO) -> npt.NDArray | None:
 
         filtered_pos: npt.NDArray = df.query(
             "peak == True & rank != 0 & rank <= 40 & y >= 0.005"
-        )["x"].to_numpy()
-        return filtered_pos
+        )  # type: ignore
+        return filtered_pos["x"].to_numpy()  # type:ignore
     except Exception as e:
         logger.error(e)
         return None
@@ -219,6 +219,9 @@ def convert_spectable(file: BytesIO, filename: str) -> BytesIO | None:
 
 
 def convert_mon(file: BytesIO, filename: str) -> BytesIO | None:
+    """
+    Convert ЛОМО МСФУ-К .mon files to .cvs
+    """
     try:
         data: list[list[str]] = []
         metadata: list[list[str]] = []
@@ -253,6 +256,9 @@ def convert_mon(file: BytesIO, filename: str) -> BytesIO | None:
 
 
 def convert_txt(file: BytesIO, filename: str) -> BytesIO | None:
+    """
+    Convert Renishaw InVia .txt files to .cvs
+    """
     try:
         csv_data = csv.reader(codecs.iterdecode(file, "utf-8"), delimiter="\t")
 

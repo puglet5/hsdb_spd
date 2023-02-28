@@ -1,11 +1,12 @@
 # type: ignore
 
-import uvicorn as uvicorn
-import sys
-import os
 import logging
+import os
+import sys
 
+import uvicorn as uvicorn
 from fastapi import FastAPI
+
 from app.config.celery_utils import create_celery
 from app.routers import spectra
 

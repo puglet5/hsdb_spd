@@ -1,11 +1,12 @@
-import json
-import requests
-import time
 import io
+import json
 import logging
+import time
 
-from requests import Response
+import requests
 from celery import shared_task
+from requests import Response
+
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)

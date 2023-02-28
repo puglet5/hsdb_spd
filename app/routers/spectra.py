@@ -1,7 +1,7 @@
-from app.tasks import processing
-
 from fastapi import APIRouter
+
 from app.config.celery_utils import get_task_info
+from app.tasks import processing
 
 router: APIRouter = APIRouter(
     tags=["Spectrum, Processing"], responses={404: {"description": "Not found"}}

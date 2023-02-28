@@ -1,26 +1,25 @@
 import json
 import logging
-
-from typing import TypedDict
-from requests import Response
 from collections.abc import Callable
+from typing import TypeAlias, TypedDict
+
+from celery import shared_task
+from requests import Response
 
 from app.config.settings import settings
-from celery import shared_task
+
 from ..tasks import communication
-from typing import TypeAlias
 from ..tools.converters import (
     construct_metadata,
     convert_dat,
     convert_dpt,
     convert_mon,
     convert_spectable,
+    convert_txt,
+    download_file,
+    find_peaks,
     validate_csv,
     validate_json,
-    find_peaks,
-    download_file,
-    convert_spectable,
-    convert_txt,
 )
 
 URL: TypeAlias = str

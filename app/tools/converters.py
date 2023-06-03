@@ -105,11 +105,19 @@ def convert_dpt(file: BytesIO, filename: str) -> BytesIO | None:
     Convert FTIR .1.dpt and .0.dpt files to .csv
     """
     try:
+        dialect = csv.Sniffer().sniff(file.read(1024).decode("utf-8"))
+        file.seek(0)
+        has_header: bool = csv.Sniffer().has_header(file.read(1024).decode("utf-8"))
+        file.seek(0)
+        if has_header:
+            file.close()
+            return None
+
         csv_data = csv.reader(codecs.iterdecode(file, "utf-8"))
 
         sio: StringIO = StringIO()
 
-        writer = csv.writer(sio, dialect="excel", delimiter=",")
+        writer = csv.writer(sio, dialect=dialect, delimiter=",")
         writer.writerows(csv_data)
 
         sio.seek(0)
@@ -172,6 +180,7 @@ def construct_metadata(init, peak_data: npt.NDArray) -> dict | None:
     peak_metadata: dict[str, list[dict[str, str]]] = {
         "peaks": [{"position": str(i)} for i in peak_data]
     }
+
     if isinstance(init, str):
         return {**json.loads(init), **peak_metadata}
     elif isinstance(init, dict):

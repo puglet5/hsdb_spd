@@ -28,7 +28,9 @@ def get_token(self) -> None:
     }
     try:
         response = requests.post(
-            f'{settings.hsdb_url}{"/api/oauth/token"}', data=form_data
+            f'{settings.hsdb_url}{"/api/oauth/token"}',
+            data=form_data,
+            timeout=10,
         )
     except Exception as e:
         logger.error(e)
@@ -67,7 +69,9 @@ def list_spectra(self) -> str | None:
     try:
         headers = {"Authorization": f"Bearer {settings.access_token}"}
         response = requests.get(
-            f'{settings.hsdb_url}{"/api/v1/spectra"}', headers=headers
+            f'{settings.hsdb_url}{"/api/v1/spectra"}',
+            headers=headers,
+            timeout=10,
         )
         return response.text
     except Exception as e:
@@ -89,7 +93,9 @@ def get_spectrum(self, id: int) -> str | None:
         headers = {"Authorization": f"Bearer {settings.access_token}"}
 
         response = requests.get(
-            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}', headers=headers
+            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            headers=headers,
+            timeout=10,
         )
         return response.text
     except Exception as e:
@@ -120,6 +126,7 @@ def post_spectrum(sample_id, file_path) -> Response | None:
             data=data,
             headers=headers,
             files=files,
+            timeout=10,
         )
         return response
     except Exception as e:
@@ -142,7 +149,10 @@ def patch_with_processed_file(self, id: int, file: io.BytesIO) -> Response | Non
     }
     try:
         response = requests.patch(
-            f"{settings.hsdb_url}/api/v1/spectra/{id}", headers=headers, files=files
+            f"{settings.hsdb_url}/api/v1/spectra/{id}",
+            headers=headers,
+            files=files,
+            timeout=10,
         )
         return response
     except Exception as e:
@@ -167,7 +177,10 @@ def update_status(self, id: int, status: str) -> Response | None:
     }
     try:
         response = requests.patch(
-            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}', data=data, headers=headers
+            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            data=data,
+            headers=headers,
+            timeout=10,
         )
         return response
     except Exception as e:
@@ -192,7 +205,10 @@ def update_metadata(self, id: int, metadata: dict) -> Response | None:
     }
     try:
         response = requests.patch(
-            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}', data=data, headers=headers
+            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            data=data,
+            headers=headers,
+            timeout=10,
         )
         return response
     except Exception as e:

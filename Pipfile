@@ -16,6 +16,7 @@ pydantic = "1.10.5"
 findpeaks = "*"
 
 [dev-packages]
+setuptools = "*"
 black = "*"
 watchdog = "*"
 honcho = "*"

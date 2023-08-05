@@ -1,4 +1,4 @@
-# hsdb_spd
+# hsdb_sdp
 
 Heritage Science DB Spectral Data Processor
 

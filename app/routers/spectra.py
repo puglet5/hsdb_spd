@@ -16,7 +16,7 @@ async def request_processing(
     """
     Request spectral data processing for record in hsdb with corresponding type and id
     """
-    task = processing.process_spectrum.delay(id)  # type: ignore
+    task = processing.process_spectrum.delay(id)
     print(task)
     return {
         "message": f"Recieved processing request for {record_type} with id {id}",

@@ -1,7 +1,7 @@
 import os
 from functools import lru_cache
 
-from kombu import Queue
+from kombu import Queue # type: ignore
 
 
 def route_task(name, args, kwargs, options, task=None, **kw):

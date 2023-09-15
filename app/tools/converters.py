@@ -9,7 +9,7 @@ from typing import Any, TypeAlias
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
-from findpeaks import findpeaks
+from findpeaks import findpeaks # type: ignore
 from requests import Response, get
 
 logger = logging.getLogger(__name__)
@@ -74,7 +74,6 @@ def validate_csv(file: BytesIO, filename: str) -> BytesIO | None:
     except Exception as e:
         logger.error(e)
         return None
-
 
 def find_peaks(file: BytesIO) -> npt.NDArray | None:
     """
@@ -173,7 +172,7 @@ def convert_dat(file: BytesIO, filename: str) -> BytesIO | None:
         return None
 
 
-def construct_metadata(init, peak_data: npt.NDArray) -> dict | None:
+def construct_metadata(init, peak_data: npt.NDArray) -> dict[str, list[dict[str, str]]] | None:
     """
     Construct JSON object from existing spectrum metadata and peak metadata from processing
     """

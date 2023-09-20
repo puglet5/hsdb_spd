@@ -2,16 +2,16 @@ from typing import Tuple, TypedDict
 
 
 class Filetype(TypedDict):
-    line_delimiter: str
-    decimal_delimiter: str
+    field_delimiter: str
+    radix_point: str
     split_indices: Tuple[int,] | Tuple[int, int]
     line_matchers: list[str]
 
 
 filetypes: dict[str, Filetype] = {
     "libs.spectable": {
-        "decimal_delimiter": "\\,",
-        "line_delimiter": "\t",
+        "radix_point": "\\,",
+        "field_delimiter": "\t",
         "split_indices": (2,),
         "line_matchers": [
             "^Wavelenght[ \t]+Spectrum$",
@@ -20,8 +20,8 @@ filetypes: dict[str, Filetype] = {
         ],
     },
     "libs.spec": {
-        "decimal_delimiter": "\\,",
-        "line_delimiter": "\t",
+        "radix_point": "\\,",
+        "field_delimiter": "\t",
         "split_indices": (2,),
         "line_matchers": [
             "^[0-9]+$",
@@ -30,14 +30,14 @@ filetypes: dict[str, Filetype] = {
         ],
     },
     "reflectance.mon": {
-        "decimal_delimiter": "\\.",
-        "line_delimiter": " +",
+        "radix_point": "\\.",
+        "field_delimiter": " +",
         "split_indices": (14, -4),
         "line_matchers": ["^//Монохроматор: результаты регистрации$"],
     },
     "reflectance.csv": {
-        "decimal_delimiter": "\\,",
-        "line_delimiter": "; ",
+        "radix_point": "\\,",
+        "field_delimiter": "; ",
         "split_indices": (1,),
         "line_matchers": [
             "^nm; ((%R)|A)$",
@@ -46,20 +46,20 @@ filetypes: dict[str, Filetype] = {
         ],
     },
     "raman.txt": {
-        "decimal_delimiter": "\\.",
-        "line_delimiter": "\t",
+        "radix_point": "\\.",
+        "field_delimiter": "\t",
         "split_indices": (0,),
         "line_matchers": ["^[+-]?([0-9]*[.])?[0-9]+[\t][+-]?([0-9]*[.])?[0-9]+$"],
     },
     "ftir.dpt": {
-        "decimal_delimiter": "\\.",
-        "line_delimiter": ",",
+        "radix_point": "\\.",
+        "field_delimiter": ",",
         "split_indices": (0,),
         "line_matchers": ["^[+-]?([0-9]*[.])?[0-9]+[,][+-]?([0-9]*[.])?[0-9]+$"],
     },
     "xrd.txt": {
-        "decimal_delimiter": "\\.",
-        "line_delimiter": " +",
+        "radix_point": "\\.",
+        "field_delimiter": " +",
         "split_indices": (0,),
         "line_matchers": [
             "^[+-]?([0-9]*[.])?[0-9]+ +[0-9]+$",
@@ -68,8 +68,8 @@ filetypes: dict[str, Filetype] = {
         ],
     },
     "xrf.txt": {
-        "decimal_delimiter": "\\.",
-        "line_delimiter": "[\t][ ]+",
+        "radix_point": "\\.",
+        "field_delimiter": "[\t][ ]+",
         "split_indices": (0,),
         "line_matchers": [
             "^[+-]?([0-9]*[.])?[0-9]+\t +[+-]?([0-9]*[.])?[0-9]+$",
@@ -78,8 +78,8 @@ filetypes: dict[str, Filetype] = {
         ],
     },
     "xrf.dat": {
-        "decimal_delimiter": "(?!)",
-        "line_delimiter": "(?!)",
+        "radix_point": "(?!)",
+        "field_delimiter": "(?!)",
         "split_indices": (1,),
         "line_matchers": [
             "^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$",
@@ -88,8 +88,8 @@ filetypes: dict[str, Filetype] = {
         ],
     },
     "xrd.xy": {
-        "decimal_delimiter": "\\.",
-        "line_delimiter": " +",
+        "radix_point": "\\.",
+        "field_delimiter": " +",
         "split_indices": (0,),
         "line_matchers": [
             "^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$",
@@ -98,8 +98,8 @@ filetypes: dict[str, Filetype] = {
         ],
     },
     "thz.txt": {
-        "decimal_delimiter": "\\,",
-        "line_delimiter": "\t",
+        "radix_point": "\\,",
+        "field_delimiter": "\t",
         "split_indices": (0,),
         "line_matchers": [
             "^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$",

@@ -162,8 +162,8 @@ def convert_to_csv(file: BytesIO, filename: str) -> BytesIO | None:
                 )
 
                 replacements = [
-                    (filetypes[filetype]["line_delimiter"], ","),
-                    (filetypes[filetype]["decimal_delimiter"], "."),
+                    (filetypes[filetype]["field_delimiter"], ","),
+                    (filetypes[filetype]["radix_point"], "."),
                 ]
 
                 sio = StringIO()

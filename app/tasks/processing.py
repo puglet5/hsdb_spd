@@ -11,16 +11,13 @@ from app.config.settings import settings
 from ..tasks import communication
 from ..tools.converters import (
     construct_metadata,
-    convert_dat,
-    convert_dpt,
-    convert_mon,
-    convert_spectable,
-    convert_txt,
+    convert_to_csv,
     download_file,
     find_peaks,
-    validate_csv,
     validate_json,
 )
+
+from ..tools.filetypes import filetypes
 
 URL: TypeAlias = str
 
@@ -39,14 +36,7 @@ class Spectrum(TypedDict):
     metadata: str | dict | None
 
 
-dispatch: dict[str, Callable] = {
-    "dpt": convert_dpt,
-    "csv": validate_csv,
-    "dat": convert_dat,
-    "spectable": convert_spectable,
-    "mon": convert_mon,
-    "txt": convert_txt,
-}
+allowed_filetypes = [i.split(".")[-1] for i in list(filetypes.keys())]
 
 
 @shared_task(
@@ -77,10 +67,10 @@ def process_spectrum(self, id: int) -> dict[str, str]:
         communication.update_status(id, "error")
         return {"message": f"Error getting spectrum file from server"}
 
-    if filetype not in dispatch:
+    if filetype not in allowed_filetypes:
         communication.update_status(id, "error")
         return {"message": f"Unsupported filetype for spectrum with id {id}"}
-    if (processed_file := dispatch[filetype](file, filename)) is None:
+    if (processed_file := convert_to_csv(file, filename)) is None:
         communication.update_status(id, "error")
         return {"message": f"Error coverting spectrum with id {id}"}
     peak_data = find_peaks(processed_file)

@@ -5,12 +5,15 @@ import logging
 import re
 from io import BytesIO, StringIO
 from typing import Any, TypeAlias
+import chardet
 
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from findpeaks import findpeaks  # type: ignore
 from requests import Response, get
+from .filetypes import filetypes
+from typing import Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +30,16 @@ def validate_json(json_data: Any) -> bool:
     return True
 
 
+def multi_sub(pairs: list[Tuple[str, str]], s: str):
+    def repl_func(m):
+        return next(
+            repl for (_, repl), group in zip(pairs, m.groups()) if group is not None
+        )
+
+    pattern = "|".join("({})".format(patt) for patt, _ in pairs)
+    return re.sub(pattern, repl_func, s, flags=re.U)
+
+
 def download_file(url: URL) -> BytesIO | None:
     """
     Download file from given url and return it as an in-memory buffer
@@ -39,41 +52,6 @@ def download_file(url: URL) -> BytesIO | None:
     file: BytesIO = BytesIO(response.content)
     file.seek(0)
     return file
-
-
-def validate_csv(file: BytesIO, filename: str) -> BytesIO | None:
-    try:
-        dialect = csv.Sniffer().sniff(file.read(1024).decode("utf-8"))
-        file.seek(0)
-        has_header: bool = csv.Sniffer().has_header(file.read(1024).decode("utf-8"))
-        file.seek(0)
-        if has_header:
-            file.close()
-            return None
-
-        csv_data = csv.reader(codecs.iterdecode(file, "utf-8"), dialect)
-
-        sio: StringIO = StringIO()
-
-        writer = csv.writer(sio, dialect="excel", delimiter=",")
-        for row in csv_data:
-            if row.count(",") + 1 > 2:
-                sio.close()
-                return None
-            writer.writerow(row)
-
-        sio.seek(0)
-        bio: BytesIO = BytesIO(sio.read().encode("utf8"))
-
-        sio.close()
-
-        bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
-        bio.seek(0)
-
-        return bio
-    except Exception as e:
-        logger.error(e)
-        return None
 
 
 def find_peaks(file: BytesIO) -> npt.NDArray | None:
@@ -95,40 +73,6 @@ def find_peaks(file: BytesIO) -> npt.NDArray | None:
             "peak == True & rank != 0 & rank <= 40 & y >= 0.005"
         )  # type: ignore
         return filtered_pos["x"].to_numpy()  # type:ignore
-    except Exception as e:
-        logger.error(e)
-        return None
-
-
-def convert_dpt(file: BytesIO, filename: str) -> BytesIO | None:
-    """
-    Convert FTIR .1.dpt and .0.dpt files to .csv
-    """
-    try:
-        dialect = csv.Sniffer().sniff(file.read(1024).decode("utf-8"))
-        file.seek(0)
-        has_header: bool = csv.Sniffer().has_header(file.read(1024).decode("utf-8"))
-        file.seek(0)
-        if has_header:
-            file.close()
-            return None
-
-        csv_data = csv.reader(codecs.iterdecode(file, "utf-8"))
-
-        sio: StringIO = StringIO()
-
-        writer = csv.writer(sio, dialect=dialect, delimiter=",")
-        writer.writerows(csv_data)
-
-        sio.seek(0)
-        bio: BytesIO = BytesIO(sio.read().encode("utf8"))
-
-        sio.close()
-
-        bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
-        bio.seek(0)
-
-        return bio
     except Exception as e:
         logger.error(e)
         return None
@@ -191,102 +135,59 @@ def construct_metadata(
         return None
 
 
-def convert_spectable(file: BytesIO, filename: str) -> BytesIO | None:
-    """
-    Convert AvaSpec-2048L Avantes .spectable file to .csv
-    """
+def convert_to_csv(file: BytesIO, filename: str) -> BytesIO | None:
     try:
-        data: list[list[str]] = []
-        header: list[list[str]] = []
+        enc = chardet.detect(file.read())["encoding"] or "utf-8"
+        file.seek(0)
+
         with file as f:
-            for line in f.readlines():
-                decoded_line: str = line.decode("utf-8")
-                if decoded_line.strip() and decoded_line[0].isdigit():
-                    re_line: str = (
-                        f"{re.sub(' +', ' ', decoded_line).strip()}".replace("\t", " ")
-                        .replace(",", ".")
-                        .replace(" ", ",")
-                    )
-                    data.append(re_line.split(","))
-                else:
-                    header.append([decoded_line])
+            filetype = None
+            for ft in filetypes:
+                res_list = []
+                for r in filetypes[ft]["line_matchers"]:
+                    line = f.readline().decode(enc)
+                    res = re.match(r, line.strip(), flags=re.U)
+                    res_list.append(res)
+                f.seek(0)
+                if None not in res_list:
+                    filetype = ft
+                    break
+            if filetype is not None:
+                if filetype == "xrf.dat":
+                    converted = convert_dat(f, filename)
+                    return converted
 
-        sio: StringIO = StringIO()
-        csvWriter = csv.writer(sio, delimiter=",")
-        csvWriter.writerows(data)
+                header, body, *footer = np.split(
+                    f.readlines(), np.asarray(filetypes[filetype]["split_indices"])
+                )
 
-        sio.seek(0)
-        bio: BytesIO = BytesIO(sio.read().encode("utf8"))
+                replacements = [
+                    (filetypes[filetype]["line_delimiter"], ","),
+                    (filetypes[filetype]["decimal_delimiter"], "."),
+                ]
 
-        sio.close()
+                sio = StringIO()
+                csv_writer = csv.writer(sio, delimiter=",")
 
-        bio.name = f'{filename.rsplit(".", 1)[0]}.csv'
-        bio.seek(0)
+                for line in body:
+                    parsed_line = multi_sub(replacements, line.decode(enc).strip())
+                    csv_writer.writerow([i.strip() for i in parsed_line.split(",")])
 
-        return bio
-    except Exception as e:
-        logger.error(e)
-        return None
+                sio.seek(0)
 
+                bio: BytesIO = BytesIO(sio.read().encode("utf8"))
 
-def convert_mon(file: BytesIO, filename: str) -> BytesIO | None:
-    """
-    Convert ЛОМО МСФУ-К .mon files to .cvs
-    """
-    try:
-        data: list[list[str]] = []
-        metadata: list[list[str]] = []
-        with file as f:
-            for line in f.readlines():
-                decoded_line: str = line.decode("Windows 1251")
-                if decoded_line.strip() and not decoded_line.startswith("//"):
-                    print(decoded_line)
-                    re_line: str = f"{re.sub(' +', ' ', decoded_line).strip()}".replace(
-                        " ", ","
-                    )
-                    data.append(re_line.split(","))
-                else:
-                    metadata.append([decoded_line])
+                sio.close()
 
-        sio: StringIO = StringIO()
-        csvWriter = csv.writer(sio, delimiter=",")
-        csvWriter.writerows(data)
+                bio.name = f'{filename.rsplit(".", 1)[0]}.csv'
+                bio.seek(0)
 
-        sio.seek(0)
-        bio: BytesIO = BytesIO(sio.read().encode("utf8"))
+                return bio
 
-        sio.close()
+            else:
+                logger.error("Error! Unsupported filetype")
+                return None
 
-        bio.name = f'{filename.rsplit(".", 1)[0]}.csv'
-        bio.seek(0)
-
-        return bio
-    except Exception as e:
-        logger.error(e)
-        return None
-
-
-def convert_txt(file: BytesIO, filename: str) -> BytesIO | None:
-    """
-    Convert Renishaw InVia .txt files to .cvs
-    """
-    try:
-        csv_data = csv.reader(codecs.iterdecode(file, "utf-8"), delimiter="\t")
-
-        sio: StringIO = StringIO()
-
-        writer = csv.writer(sio, dialect="excel", delimiter=",")
-        writer.writerows(csv_data)
-
-        sio.seek(0)
-        bio: BytesIO = BytesIO(sio.read().encode("utf8"))
-
-        sio.close()
-
-        bio.name = f'{filename.rsplit(".", 2)[0]}.csv'
-        bio.seek(0)
-
-        return bio
     except Exception as e:
         logger.error(e)
         return None

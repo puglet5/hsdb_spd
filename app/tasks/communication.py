@@ -4,7 +4,7 @@ import logging
 import time
 
 import requests
-from celery import shared_task # type: ignore
+from celery import shared_task  # type: ignore
 from requests import Response
 
 from app.config.settings import settings

@@ -36,9 +36,6 @@ class Spectrum(TypedDict):
     metadata: str | dict | None
 
 
-allowed_filetypes = [i.split(".")[-1] for i in list(filetypes.keys())]
-
-
 @shared_task(
     bind=True,
     autoretry_for=(Exception,),
@@ -50,7 +47,7 @@ def process_spectrum(self, id: int) -> dict[str, str]:
     """
     Process passed spectrum based on its filetype
 
-    Filetype is defined in spectrum["format"]. Supported filetypes: .dpt, .dat, .csv
+    Filetype is defined in spectrum["format"]. Supported filetypes: .dpt, .mon, .csv, .spectable, .txt, .dat, .xy, .spec
     """
     if (raw_spectrum := communication.get_spectrum(id)) is None:
         communication.update_status(id, "error")
@@ -59,7 +56,6 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
     file_url: URL = f'{settings.hsdb_url}{spectrum["file_url"]}'
     filename: str = spectrum["filename"]
-    filetype: str = spectrum["format"]
 
     communication.update_status(id, "ongoing")
 
@@ -67,9 +63,6 @@ def process_spectrum(self, id: int) -> dict[str, str]:
         communication.update_status(id, "error")
         return {"message": f"Error getting spectrum file from server"}
 
-    if filetype not in allowed_filetypes:
-        communication.update_status(id, "error")
-        return {"message": f"Unsupported filetype for spectrum with id {id}"}
     if (processed_file := convert_to_csv(file, filename)) is None:
         communication.update_status(id, "error")
         return {"message": f"Error coverting spectrum with id {id}"}

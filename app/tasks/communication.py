@@ -63,13 +63,20 @@ def login() -> None:
     retry_kwargs={"max_retries": 0},
     name="spectra:list_spectra",
 )
-def list_spectra(self) -> str | None:
+def list_spectra(
+    self,
+    *,
+    sample_id: str | int | None = None,
+    spectrum_type: str | None = None,
+    spectrum_format: str | None = None,
+    processing_status: str | None = None,
+) -> str | None:
     login()
 
     try:
         headers = {"Authorization": f"Bearer {settings.access_token}"}
         response = requests.get(
-            f'{settings.hsdb_url}{"/api/v1/spectra"}',
+            f"{settings.hsdb_url}/api/v1/spectra?by_sample_id={sample_id}?by_type={spectrum_type}?by_format={spectrum_format}?by_status={processing_status}",
             headers=headers,
             timeout=10,
         )
@@ -211,6 +218,33 @@ def update_metadata(self, id: int, metadata: dict) -> Response | None:
             timeout=10,
         )
         return response
+    except Exception as e:
+        logger.error(e)
+        return None
+
+
+def retrieve_reference_spectrum_id(
+    sample_id: str | int | None = None,
+    spectrum_type: str | None = None,
+    spectrum_format: str | None = None,
+    processing_status: str | None = None,
+) -> str | None:
+    try:
+        spectra: str = list_spectra(
+            sample_id=sample_id,
+            spectrum_type=spectrum_type,
+            spectrum_format=spectrum_format,
+            processing_status=processing_status,
+        )
+        ref_id_list: list[str] = [
+            x["id"] for x in json.loads(spectra)["spectra"] if x["is_reference"] == True
+        ]
+
+        if len(ref_id_list) == 0:
+            return None
+        else:
+            return ref_id_list[0]
+
     except Exception as e:
         logger.error(e)
         return None

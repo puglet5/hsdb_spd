@@ -1,4 +1,3 @@
-import codecs
 import csv
 import json
 import logging
@@ -15,9 +14,29 @@ from requests import Response, get
 from .filetypes import filetypes
 from typing import Tuple
 
+from ..tasks import communication
+
 logger = logging.getLogger(__name__)
 
 URL: TypeAlias = str
+
+
+DEGREE = 0.0174533
+FIT_FREQ_INTERVAL = (0.1, 0.5)
+COMMON_RANGE_FREQ_INTERVAL = (0.2, 1.1)
+SPEED_C = 360
+
+
+def minmax(x):
+    return [np.min(x), np.max(x)]
+
+
+def pad(x, n):
+    return np.pad(x, (0, n - len(x)), mode="constant")
+
+
+def fft(x):
+    return np.fft.fft(x)
 
 
 def validate_json(json_data: Any) -> bool:

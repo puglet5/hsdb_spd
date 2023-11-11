@@ -1,7 +1,10 @@
 from fastapi import APIRouter
+import logging
 
 from app.config.celery_utils import get_task_info
-from app.tasks import processing
+from app.tasks import processing, communication
+
+logger = logging.getLogger(__name__)
 
 router: APIRouter = APIRouter(
     tags=["Spectrum, Processing"], responses={404: {"description": "Not found"}}
@@ -16,7 +19,7 @@ async def request_processing(
     """
     Request spectral data processing for record in hsdb with corresponding type and id
     """
-    task = processing.process_spectrum.delay(id)
+    task = processing.process_spectrum.delay(id)  # type: ignore
     return {
         "message": f"Recieved processing request for {record_type} with id {id}",
         "task": {"id": f"{task}"},

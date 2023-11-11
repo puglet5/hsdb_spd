@@ -1,6 +1,6 @@
+from io import BytesIO
 import json
 import logging
-from collections.abc import Callable
 from typing import TypeAlias, TypedDict
 
 from celery import shared_task
@@ -17,8 +17,6 @@ from ..tools.converters import (
     validate_json,
 )
 
-from ..tools.filetypes import filetypes
-
 URL: TypeAlias = str
 
 logger = logging.getLogger(__name__)
@@ -28,7 +26,7 @@ class Spectrum(TypedDict):
     file_url: str
     filename: str
     id: int
-    sample: dict[int, str]
+    sample: dict[str, int]
     format: str
     status: str
     category: str
@@ -45,9 +43,7 @@ class Spectrum(TypedDict):
 )
 def process_spectrum(self, id: int) -> dict[str, str]:
     """
-    Process passed spectrum based on its filetype
-
-    Filetype is defined in spectrum["format"]. Supported filetypes: .dpt, .mon, .csv, .spectable, .txt, .dat, .xy, .spec
+    Process spectrum with corresponding id
     """
     if (raw_spectrum := communication.get_spectrum(id)) is None:
         communication.update_status(id, "error")
@@ -62,6 +58,10 @@ def process_spectrum(self, id: int) -> dict[str, str]:
     if (file := download_file(file_url)) is None:
         communication.update_status(id, "error")
         return {"message": f"Error getting spectrum file from server"}
+
+    if spectrum["category"] == "thz":
+        handle_thz(id, spectrum, file)
+        return {"message": f"Done processing for thz spectrum with id {id}"}
 
     if (processed_file := convert_to_csv(file, filename)) is None:
         communication.update_status(id, "error")
@@ -90,3 +90,24 @@ def process_spectrum(self, id: int) -> dict[str, str]:
     communication.update_status(id, "successful")
 
     return {"message": f"Done processing for spectrum with id {id}"}
+
+
+def process_thz(files: tuple[BytesIO, ...]):
+    """
+    Extracts refraction and absorption index from THz TDS data.
+
+    First file in a `files` tuple must be a reference spectrum.
+    """
+    ...
+
+
+def handle_thz(id: int, spectrum: Spectrum, sample_file: BytesIO):
+    ref_id = communication.retrieve_reference_spectrum_id(
+        sample_id=spectrum["sample"]["id"]
+    )
+    ref_url = f'{settings.hsdb_url}{json.loads(communication.get_spectrum(ref_id))["spectrum"]["file_url"]}'
+    if (ref_file := download_file(ref_url)) is None:
+        communication.update_status(id, "error")
+        return {"message": f"Error getting spectrum file from server"}
+    process_thz((ref_file, sample_file))
+    communication.update_status(id, "successful")

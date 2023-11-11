@@ -183,10 +183,6 @@ def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
         ref_phase_vs_freq[:, 0], *COMMON_RANGE_FREQ_INTERVAL
     ).mask
 
-    refraction_index_vs_freq: npt.NDArray[np.float_] = np.array(
-        [frequencies, refraction_index]
-    ).T
-
     absorption_index = (
         20
         / sample_thickness
@@ -196,9 +192,9 @@ def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
         )
     )
 
-    absorption_index_vs_freq: npt.NDArray[np.float_] = np.array(
-        [frequencies, absorption_index]
-    ).T
+    return np.array([frequencies, refraction_index, absorption_index]).T[
+        range_freq_mask
+    ]
 
 
 def handle_thz(id: int, spectrum: Spectrum, sample_file: BytesIO):
@@ -229,4 +225,27 @@ def handle_thz(id: int, spectrum: Spectrum, sample_file: BytesIO):
         else:
             communication.update_status(id, "error")
     else:
-        communication.update_status(id, "error")
+        try:
+            if (
+                processed_file := convert_to_csv(sample_file, spectrum["filename"])
+            ) is None:
+                communication.update_status(id, "error")
+                return {"message": f"Error coverting spectrum with id {id}"}
+            processed_file.seek(0)
+
+            file_patch_response: Response | None = (
+                communication.patch_with_processed_file(id, processed_file)
+            )
+
+            if file_patch_response is None:
+                communication.update_status(id, "error")
+                return {
+                    "message": f"Error uploading processing data to spectrum with id {id}"
+                }
+
+            communication.update_status(id, "successful")
+            return {"message": f"Done processing for spectrum with id {id}"}
+
+        except Exception as e:
+            logger.error(e)
+            communication.update_status(id, "error")

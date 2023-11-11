@@ -1,11 +1,11 @@
-from pydantic import BaseSettings
+from pydantic import BaseSettings, Field
 
 
 class Settings(BaseSettings):
-    hsdb_url: str
-    hsdb_email: str
-    hsdb_password: str
-    hsdb_client_id: str
+    hsdb_url: str = Field(default=...)
+    hsdb_email: str = Field(default=...)
+    hsdb_password: str = Field(default=...)
+    hsdb_client_id: str = Field(default=...)
     access_token: str | None = None
     refresh_token: str | None = None
     token_created_at: int | None = None

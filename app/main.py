@@ -1,4 +1,5 @@
 import logging
+import logging.config
 import os
 import sys
 
@@ -21,12 +22,11 @@ def create_app() -> FastAPI:
     )
 
     current_app.include_router(spectra.router)
-    current_app.celery_app = create_celery()
     return current_app
 
 
 app = create_app()
-celery = app.celery_app
+celery = create_celery()
 
 if __name__ == "__main__":
     uvicorn.run(

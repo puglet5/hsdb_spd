@@ -105,9 +105,18 @@ def handle_thz(id: int, spectrum: Spectrum, sample_file: BytesIO):
     ref_id = communication.retrieve_reference_spectrum_id(
         sample_id=spectrum["sample"]["id"]
     )
-    ref_url = f'{settings.hsdb_url}{json.loads(communication.get_spectrum(ref_id))["spectrum"]["file_url"]}'
-    if (ref_file := download_file(ref_url)) is None:
-        communication.update_status(id, "error")
-        return {"message": f"Error getting spectrum file from server"}
-    process_thz((ref_file, sample_file))
-    communication.update_status(id, "successful")
+    if ref_id is not None:
+        ref_spectrum = communication.get_spectrum(ref_id)
+        if ref_spectrum is not None:
+            ref_url = (
+                f'{settings.hsdb_url}{json.loads(ref_spectrum)["spectrum"]["file_url"]}'
+            )
+            if (ref_file := download_file(ref_url)) is None:
+                communication.update_status(id, "error")
+                return {"message": f"Error getting spectrum file from server"}
+            process_thz((ref_file, sample_file))
+            communication.update_status(id, "successful")
+        else:
+            communication.update_status(id, "successful")
+    else:
+        communication.update_status(id, "successful")

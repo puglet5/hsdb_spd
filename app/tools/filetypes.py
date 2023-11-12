@@ -1,11 +1,12 @@
-from typing import Tuple, TypedDict
+from typing import Tuple, TypedDict, Pattern
+import re
 
 
 class Filetype(TypedDict):
     field_delimiter: str
     radix_point: str
     split_indices: Tuple[int,] | Tuple[int, int]
-    line_matchers: list[str]
+    line_matchers: list[Pattern[str]]
 
 
 filetypes: dict[str, Filetype] = {
@@ -14,9 +15,9 @@ filetypes: dict[str, Filetype] = {
         "field_delimiter": "\t",
         "split_indices": (2,),
         "line_matchers": [
-            "^Wavelenght[ \t]+Spectrum$",
-            "^Integration delay[ \t]+[+-]?([0-9]*[,])?[0-9]+$",
-            "^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$",
+            re.compile("^Wavelenght[ \t]+Spectrum$"),
+            re.compile("^Integration delay[ \t]+[+-]?([0-9]*[,])?[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$"),
         ],
     },
     "libs.spec": {
@@ -24,47 +25,51 @@ filetypes: dict[str, Filetype] = {
         "field_delimiter": "\t",
         "split_indices": (2,),
         "line_matchers": [
-            "^[0-9]+$",
-            "^[0-9]+$",
-            "^[+-]?([0-9]*[,])?[0-9]+[ \t]+[+-]?([0-9]*[,])?[0-9]+$",
+            re.compile("^[0-9]+$"),
+            re.compile("^[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[,])?[0-9]+[ \t]+[+-]?([0-9]*[,])?[0-9]+$"),
         ],
     },
     "reflectance.mon": {
         "radix_point": "\\.",
         "field_delimiter": " +",
         "split_indices": (14, -4),
-        "line_matchers": ["^//Монохроматор: результаты регистрации$"],
+        "line_matchers": [re.compile("^//Монохроматор: результаты регистрации$")],
     },
     "reflectance.csv": {
         "radix_point": "\\,",
         "field_delimiter": "; ",
         "split_indices": (1,),
         "line_matchers": [
-            "^nm; ((%R)|A)$",
-            "[+-]?([0-9]*[,])?[0-9]+; [+-]?([0-9]*[,])?[0-9]+",
-            "[+-]?([0-9]*[,])?[0-9]+; [+-]?([0-9]*[,])?[0-9]+",
+            re.compile("^nm; ((%R)|A)$"),
+            re.compile("[+-]?([0-9]*[,])?[0-9]+; [+-]?([0-9]*[,])?[0-9]+"),
+            re.compile("[+-]?([0-9]*[,])?[0-9]+; [+-]?([0-9]*[,])?[0-9]+"),
         ],
     },
     "raman.txt": {
         "radix_point": "\\.",
         "field_delimiter": "\t",
         "split_indices": (0,),
-        "line_matchers": ["^[+-]?([0-9]*[.])?[0-9]+[\t][+-]?([0-9]*[.])?[0-9]+$"],
+        "line_matchers": [
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+[\t][+-]?([0-9]*[.])?[0-9]+$")
+        ],
     },
     "ftir.dpt": {
         "radix_point": "\\.",
         "field_delimiter": ",",
         "split_indices": (0,),
-        "line_matchers": ["^[+-]?([0-9]*[.])?[0-9]+[,][+-]?([0-9]*[.])?[0-9]+$"],
+        "line_matchers": [
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+[,][+-]?([0-9]*[.])?[0-9]+$")
+        ],
     },
     "xrd.txt": {
         "radix_point": "\\.",
         "field_delimiter": " +",
         "split_indices": (0,),
         "line_matchers": [
-            "^[+-]?([0-9]*[.])?[0-9]+ +[0-9]+$",
-            "^[+-]?([0-9]*[.])?[0-9]+ +[0-9]+$",
-            "^[+-]?([0-9]*[.])?[0-9]+ +[0-9]+$",
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+ +[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+ +[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+ +[0-9]+$"),
         ],
     },
     "xrf.txt": {
@@ -72,9 +77,9 @@ filetypes: dict[str, Filetype] = {
         "field_delimiter": "[\t][ ]+",
         "split_indices": (0,),
         "line_matchers": [
-            "^[+-]?([0-9]*[.])?[0-9]+\t +[+-]?([0-9]*[.])?[0-9]+$",
-            "^[+-]?([0-9]*[.])?[0-9]+\t +[+-]?([0-9]*[.])?[0-9]+$",
-            "^[+-]?([0-9]*[.])?[0-9]+\t +[+-]?([0-9]*[.])?[0-9]+$",
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+\t +[+-]?([0-9]*[.])?[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+\t +[+-]?([0-9]*[.])?[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+\t +[+-]?([0-9]*[.])?[0-9]+$"),
         ],
     },
     "xrf.dat": {
@@ -82,9 +87,9 @@ filetypes: dict[str, Filetype] = {
         "field_delimiter": "(?!)",
         "split_indices": (1,),
         "line_matchers": [
-            "^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$",
-            "^[0-9]+$",
-            "^[0-9]+$",
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$"),
+            re.compile("^[0-9]+$"),
+            re.compile("^[0-9]+$"),
         ],
     },
     "xrd.xy": {
@@ -92,9 +97,9 @@ filetypes: dict[str, Filetype] = {
         "field_delimiter": " +",
         "split_indices": (0,),
         "line_matchers": [
-            "^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$",
-            "^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$",
-            "^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$",
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+ [+-]?([0-9]*[.])?[0-9]+$"),
         ],
     },
     "thz.txt": {
@@ -102,9 +107,9 @@ filetypes: dict[str, Filetype] = {
         "field_delimiter": "\t",
         "split_indices": (0,),
         "line_matchers": [
-            "^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$",
-            "^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$",
-            "^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$",
+            re.compile("^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$"),
         ],
     },
 }

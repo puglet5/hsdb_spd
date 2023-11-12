@@ -147,7 +147,7 @@ def convert_to_csv(file: BytesIO, filename: str) -> BytesIO | None:
                 res_list = []
                 for r in filetypes[ft]["line_matchers"]:
                     line = f.readline().decode(enc)
-                    res = re.match(r, line.strip(), flags=re.U)
+                    res = re.match(r, line.strip())
                     res_list.append(res)
                 f.seek(0)
                 if None not in res_list:

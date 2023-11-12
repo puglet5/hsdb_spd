@@ -2,11 +2,9 @@ import logging
 import logging.config
 import os
 import sys
-from fastapi.responses import HTMLResponse
 
 import uvicorn as uvicorn
-from fastapi import FastAPI, Request
-from pyinstrument import Profiler
+from fastapi import FastAPI
 
 from app.config.celery_utils import create_celery
 from app.routers import spectra

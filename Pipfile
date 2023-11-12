@@ -15,6 +15,7 @@ numpy = "==1.26.1"
 pydantic = "==2.4.2"
 findpeaks = "==2.6.0"
 chardet = "*"
+pydantic-settings = "*"
 
 [dev-packages]
 setuptools = "*"

@@ -1,4 +1,5 @@
-from pydantic import BaseSettings, Field
+from pydantic import Field
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -11,6 +12,7 @@ class Settings(BaseSettings):
     token_created_at: int | None = None
 
     class Config:
+        extra = "allow"
         env_file: str = ".env"
         env_file_encoding: str = "utf-8"
 

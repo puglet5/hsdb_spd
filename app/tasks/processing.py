@@ -1,23 +1,23 @@
 from io import BytesIO
 import json
 import logging
-from typing import TypeAlias, TypedDict
+from typing import TypeAlias, TypedDict, NotRequired, Any
 import numpy as np
 import numpy.typing as npt
+from findpeaks import findpeaks
 
 from celery import shared_task
 import numpy as np
 import pandas as pd
 from requests import Response
+from dataclasses import dataclass, field
 
 from app.config.settings import settings
 
 from ..tasks import communication
 from ..tools.converters import (
-    construct_metadata,
     convert_to_csv,
     download_file,
-    find_peaks,
     validate_json,
 )
 
@@ -44,17 +44,112 @@ def fft(x):
     return np.fft.fft(x)
 
 
-class Spectrum(TypedDict):
-    file_url: str
+class PeakDatum(TypedDict):
+    position: float
+    fwhm: NotRequired[float]
+
+
+class PeakData(TypedDict):
+    peaks: list[PeakDatum]
+
+
+@dataclass
+class Sample:
+    id: int
+    title: str
+
+
+@dataclass
+class Spectrum:
+    file_url: URL
     filename: str
     id: int
-    sample: dict[str, int]
+    sample: Sample
     format: str
     status: str
     category: str
     range: str
     metadata: str | dict | None
     sample_thickness: float
+    is_reference: bool
+
+    raw_file: BytesIO | None = field(init=False, default=None)
+    processed_file: BytesIO | None = field(init=False, default=None)
+    csv_file: BytesIO | None = field(init=False, default=None)
+    peaks: npt.NDArray[np.float_] | None = field(init=False, default=None)
+    peak_metadata: PeakData | dict[Any, Any] | None = field(init=False, default=None)
+
+    def __post_init__(self):
+        self.sample = Sample(**self.sample)  # type: ignore
+        self.file_url = f"{settings.hsdb_url}{self.file_url}"
+        self.raw_file = download_file(self.file_url)
+
+    def to_csv(self) -> BytesIO | None:
+        if self.raw_file is None:
+            return None
+        if isinstance(self.csv_file, BytesIO):
+            return self.csv_file
+
+        self.csv_file = convert_to_csv(self.raw_file, self.filename)
+        return self.csv_file
+
+    def find_peaks(self) -> npt.NDArray[np.float_] | None:
+        """
+        Find peaks in a second column of csv-like data and return peaks as a numpy array.
+
+        Peaks are filtered by their rank and height returned by findpeaks.
+        Return None if none were found
+        """
+        if self.csv_file is None:
+            return None
+
+        try:
+            self.csv_file.seek(0)
+            data: npt.NDArray[np.float_] = np.loadtxt(self.csv_file, delimiter=",")[
+                :, 1
+            ]
+            self.csv_file.seek(0)
+            fp = findpeaks(method="topology", lookahead=2, denoise="bilateral")
+            if (result := fp.fit(data / np.max(data))) is not None:
+                df: pd.DataFrame = result["df"]
+            else:
+                return None
+
+            filtered_pos: pd.DataFrame | None = df.query(
+                "peak == True & rank != 0 & rank <= 40 & y >= 0.005"
+            )  # type: ignore
+            peaks: npt.NDArray[np.float_] | None = filtered_pos["x"].to_numpy()
+            self.peaks = peaks
+            return self.peaks
+        except Exception as e:
+            logger.error(e)
+            return None
+
+    def construct_peak_metadata(self) -> PeakData | dict[Any, Any] | None:
+        if self.peaks is None:
+            return None
+
+        peak_metadata: PeakData = {"peaks": [{"position": i} for i in self.peaks]}
+        self.peak_metadata = peak_metadata
+        return peak_metadata
+
+    def merge_metadata(self, additional_metadata: dict[Any, Any]) -> dict | None:
+        if isinstance(self.metadata, str):
+            self.metadata = {**json.loads(self.metadata), **additional_metadata}
+        elif isinstance(self.metadata, dict):
+            self.metadata = {**self.metadata, **additional_metadata}
+
+        return self.metadata
+
+
+@dataclass
+class THzSpectrum(Spectrum):
+    ...
+
+
+@dataclass
+class DatTypeSpectrum(Spectrum):
+    ...
 
 
 @shared_task(
@@ -66,45 +161,40 @@ class Spectrum(TypedDict):
 )
 def process_spectrum(self, id: int) -> dict[str, str]:
     """
-    Process spectrum with corresponding id
+    Process spectrum with corresponding id and upload resulting file to processed_file in hsdb
     """
     if (raw_spectrum := communication.get_spectrum(id)) is None:
         communication.update_status(id, "error")
         return {"message": f"Error retrieving spectrum with {id}"}
-    spectrum: Spectrum = json.loads(raw_spectrum)["spectrum"]
-
-    file_url: URL = f'{settings.hsdb_url}{spectrum["file_url"]}'
-    filename: str = spectrum["filename"]
+    spectrum = Spectrum(**json.loads(raw_spectrum)["spectrum"])
 
     communication.update_status(id, "ongoing")
 
-    if (file := download_file(file_url)) is None:
+    if spectrum.raw_file is None:
         communication.update_status(id, "error")
         return {"message": f"Error getting spectrum file from server"}
 
-    if spectrum["category"] == "thz":
-        handle_thz(id, spectrum, file)
+    if spectrum.category == "thz":
+        handle_thz(spectrum)
         return {"message": f"Done processing for thz spectrum with id {id}"}
 
-    if (processed_file := convert_to_csv(file, filename)) is None:
+    if (processed_file := spectrum.to_csv()) is None:
         communication.update_status(id, "error")
         return {"message": f"Error coverting spectrum with id {id}"}
-    peak_data = find_peaks(processed_file)
 
-    processed_file.seek(0)
+    spectrum.find_peaks()
+    spectrum.construct_peak_metadata()
 
     file_patch_response: Response | None = communication.patch_with_processed_file(
         id, processed_file
     )
 
     metadata_patch_response: Response | None = None
-    if validate_json(spectrum["metadata"]) and peak_data is not None:
-        if (
-            metadata := construct_metadata(spectrum["metadata"], peak_data)
-        ) is not None:
-            metadata_patch_response = communication.update_metadata(id, metadata)
-
-    processed_file.close()
+    if validate_json(spectrum.metadata) and spectrum.peak_metadata is not None:
+        if (spectrum.merge_metadata(spectrum.peak_metadata)) is not None:  # type:ignore
+            metadata_patch_response = communication.update_metadata(
+                id, spectrum.metadata
+            )
 
     if metadata_patch_response is None or file_patch_response is None:
         communication.update_status(id, "error")
@@ -117,7 +207,7 @@ def process_spectrum(self, id: int) -> dict[str, str]:
 
 def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
     """
-    Extracts refraction and absorption index from THz TDS data.
+    Extract refraction and absorption index from THz TDS data.
 
     First file in a `files` tuple must be a reference spectrum.
     """
@@ -197,41 +287,42 @@ def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
     ]
 
 
-def handle_thz(id: int, spectrum: Spectrum, sample_file: BytesIO):
-    ref_id = communication.retrieve_reference_spectrum_id(
-        sample_id=spectrum["sample"]["id"]
-    )
+def handle_thz(spectrum: Spectrum):
+    id = spectrum.id
+    if spectrum.raw_file is None:
+        communication.update_status(id, "error")
+        return {"message": f"Error processing spectrum with id {id}"}
+
+    ref_id = communication.retrieve_reference_spectrum_id(sample_id=spectrum.sample.id)
     if ref_id is not None:
         raw_ref_spectrum = communication.get_spectrum(ref_id)
-        if raw_ref_spectrum is not None:
-            ref_spectrum: Spectrum = json.loads(raw_ref_spectrum)["spectrum"]
-            ref_url = f'{settings.hsdb_url}{ref_spectrum["file_url"]}'
-            if (ref_file := download_file(ref_url)) is None:
-                communication.update_status(id, "error")
-                return {"message": f"Error getting spectrum file from server"}
-            ref_csv = convert_to_csv(ref_file, ref_spectrum["filename"])
-            sample_csv = convert_to_csv(sample_file, spectrum["filename"])
-            sample_thickness = float(spectrum["sample_thickness"])
+        if raw_ref_spectrum is None:
+            communication.update_status(id, "error")
+            return {"message": f"Error retrieving reference spectrum with id {ref_id}"}
 
-            if ref_csv is not None and sample_csv is not None:
-                try:
-                    process_thz(ref_csv, sample_csv, sample_thickness)
-                    communication.update_status(id, "successful")
-                except Exception as e:
-                    logger.error(e)
-                    communication.update_status(id, "error")
-            else:
+        ref_spectrum = Spectrum(**json.loads(raw_ref_spectrum)["spectrum"])
+        if (ref_spectrum.raw_file) is None:
+            communication.update_status(id, "error")
+            return {"message": f"Error getting spectrum file from server"}
+        ref_csv = ref_spectrum.to_csv()
+        sample_csv = spectrum.to_csv()
+        sample_thickness = spectrum.sample_thickness
+
+        if ref_csv is not None and sample_csv is not None:
+            try:
+                process_thz(ref_csv, sample_csv, sample_thickness)
+                communication.update_status(id, "successful")
+            except Exception as e:
+                logger.error(e)
                 communication.update_status(id, "error")
         else:
             communication.update_status(id, "error")
+
     else:
         try:
-            if (
-                processed_file := convert_to_csv(sample_file, spectrum["filename"])
-            ) is None:
+            if (processed_file := spectrum.to_csv()) is None:
                 communication.update_status(id, "error")
                 return {"message": f"Error coverting spectrum with id {id}"}
-            processed_file.seek(0)
 
             file_patch_response: Response | None = (
                 communication.patch_with_processed_file(id, processed_file)

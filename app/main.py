@@ -11,7 +11,7 @@ from app.routers import spectra
 
 sys.path.insert(0, os.path.join(os.getcwd(), "app"))
 
-logging.config.fileConfig("logging.conf", disable_existing_loggers=False)
+logging.config.fileConfig(fname=r"logging.conf", disable_existing_loggers=False)
 logger = logging.getLogger(__name__)
 
 

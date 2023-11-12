@@ -2,6 +2,7 @@ import io
 import json
 import logging
 import time
+import numpy as np
 
 import requests
 from celery import shared_task  # type: ignore
@@ -10,6 +11,11 @@ from requests import Response
 from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
+
+
+def np_encoder(object):
+    if isinstance(object, np.generic):
+        return object.item()
 
 
 @shared_task(
@@ -204,7 +210,7 @@ def update_status(self, id: int, status: str) -> Response | None:
 )
 def update_metadata(self, id: int, metadata: dict) -> Response | None:
     data = {
-        "spectrum[metadata]": json.dumps(metadata),
+        "spectrum[metadata]": json.dumps(metadata, default=np_encoder),
     }
 
     headers = {

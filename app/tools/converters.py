@@ -7,14 +7,9 @@ from typing import Any, TypeAlias
 import chardet
 
 import numpy as np
-import numpy.typing as npt
-import pandas as pd
-from findpeaks import findpeaks  # type: ignore
 from requests import Response, get
 from .filetypes import filetypes
 from typing import Tuple
-
-from ..tasks import communication
 
 logger = logging.getLogger(__name__)
 
@@ -31,14 +26,14 @@ def validate_json(json_data: Any) -> bool:
     return True
 
 
-def multi_sub(pairs: list[Tuple[str, str]], s: str):
+def multi_sub(sub_pairs: list[Tuple[str, str]], string: str):
     def repl_func(m):
         return next(
-            repl for (_, repl), group in zip(pairs, m.groups()) if group is not None
+            repl for (_, repl), group in zip(sub_pairs, m.groups()) if group is not None
         )
 
-    pattern = "|".join("({})".format(patt) for patt, _ in pairs)
-    return re.sub(pattern, repl_func, s, flags=re.U)
+    pattern = "|".join("({})".format(patt) for patt, _ in sub_pairs)
+    return re.sub(pattern, repl_func, string, flags=re.U)
 
 
 def download_file(url: URL) -> BytesIO | None:
@@ -53,30 +48,6 @@ def download_file(url: URL) -> BytesIO | None:
     file: BytesIO = BytesIO(response.content)
     file.seek(0)
     return file
-
-
-def find_peaks(file: BytesIO) -> npt.NDArray | None:
-    """
-    Find peaks in second array of csv-like data and return as numpy array.
-
-    Peaks are filtered by their rank and height returned by findpeaks.
-    Return None if none were found
-    """
-    try:
-        data = np.loadtxt(file, delimiter=",")[:, 1]
-        fp = findpeaks(method="topology", lookahead=2, denoise="bilateral")
-        if (result := fp.fit(data / np.max(data))) is not None:
-            df: pd.DataFrame = result["df"]
-        else:
-            return None
-
-        filtered_pos: npt.NDArray = df.query(
-            "peak == True & rank != 0 & rank <= 40 & y >= 0.005"
-        )  # type: ignore
-        return filtered_pos["x"].to_numpy()  # type:ignore
-    except Exception as e:
-        logger.error(e)
-        return None
 
 
 def convert_dat(file: BytesIO, filename: str) -> BytesIO | None:
@@ -115,24 +86,6 @@ def convert_dat(file: BytesIO, filename: str) -> BytesIO | None:
         return bio
     except Exception as e:
         logger.error(e)
-        return None
-
-
-def construct_metadata(
-    init, peak_data: npt.NDArray
-) -> dict[str, list[dict[str, str]]] | None:
-    """
-    Construct JSON object from existing spectrum metadata and peak metadata from processing
-    """
-    peak_metadata: dict[str, list[dict[str, str]]] = {
-        "peaks": [{"position": str(i)} for i in peak_data]
-    }
-
-    if isinstance(init, str):
-        return {**json.loads(init), **peak_metadata}
-    elif isinstance(init, dict):
-        return {**init, **peak_metadata}
-    else:
         return None
 
 

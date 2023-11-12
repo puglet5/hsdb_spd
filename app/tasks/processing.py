@@ -15,6 +15,7 @@ from dataclasses import dataclass, field
 from app.config.settings import settings
 
 from ..tasks import communication
+from ..tasks.communication import update_status
 from ..tools.converters import (
     convert_to_csv,
     download_file,
@@ -83,6 +84,7 @@ class Spectrum:
         self.sample = Sample(**self.sample)  # type: ignore
         self.file_url = f"{settings.hsdb_url}{self.file_url}"
         self.raw_file = download_file(self.file_url)
+        self.to_csv()
 
     def to_csv(self) -> BytesIO | None:
         if self.raw_file is None:
@@ -163,46 +165,55 @@ def process_spectrum(self, id: int) -> dict[str, str]:
     """
     Process spectrum with corresponding id and upload resulting file to processed_file in hsdb
     """
-    if (raw_spectrum := communication.get_spectrum(id)) is None:
-        communication.update_status(id, "error")
-        return {"message": f"Error retrieving spectrum with {id}"}
-    spectrum = Spectrum(**json.loads(raw_spectrum)["spectrum"])
+    try:
+        if (raw_spectrum := communication.get_spectrum(id)) is None:
+            update_status(id, "error")
+            return {"message": f"Error retrieving spectrum with {id}"}
 
-    communication.update_status(id, "ongoing")
+        update_status(id, "ongoing")
 
-    if spectrum.raw_file is None:
-        communication.update_status(id, "error")
-        return {"message": f"Error getting spectrum file from server"}
+        spectrum = Spectrum(**json.loads(raw_spectrum)["spectrum"])
 
-    if spectrum.category == "thz":
-        handle_thz(spectrum)
-        return {"message": f"Done processing for thz spectrum with id {id}"}
+        if spectrum.raw_file is None:
+            update_status(id, "error")
+            return {"message": f"Error getting spectrum file from server"}
 
-    if (processed_file := spectrum.to_csv()) is None:
-        communication.update_status(id, "error")
-        return {"message": f"Error coverting spectrum with id {id}"}
+        if (spectrum.csv_file) is None:
+            update_status(id, "error")
+            return {"message": f"Error coverting spectrum with id {id}"}
 
-    spectrum.find_peaks()
-    spectrum.construct_peak_metadata()
+        if spectrum.category == "thz":
+            handle_thz(spectrum)
+            return {"message": f"Done processing for thz spectrum with id {id}"}
 
-    file_patch_response: Response | None = communication.patch_with_processed_file(
-        id, processed_file
-    )
+        spectrum.find_peaks()
+        spectrum.construct_peak_metadata()
 
-    metadata_patch_response: Response | None = None
-    if validate_json(spectrum.metadata) and spectrum.peak_metadata is not None:
-        if (spectrum.merge_metadata(spectrum.peak_metadata)) is not None:  # type:ignore
-            metadata_patch_response = communication.update_metadata(
-                id, spectrum.metadata
-            )
+        file_patch_response: Response | None = communication.patch_with_processed_file(
+            id, spectrum.csv_file
+        )
 
-    if metadata_patch_response is None or file_patch_response is None:
-        communication.update_status(id, "error")
-        return {"message": f"Error uploading processing data to spectrum with id {id}"}
+        metadata_patch_response: Response | None = None
+        if validate_json(spectrum.metadata) and spectrum.peak_metadata is not None:
+            if (
+                spectrum.merge_metadata(spectrum.peak_metadata)  # type:ignore
+            ) is not None:
+                metadata_patch_response = communication.update_metadata(
+                    id, spectrum.metadata
+                )
 
-    communication.update_status(id, "successful")
+        if metadata_patch_response is None or file_patch_response is None:
+            update_status(id, "error")
+            return {
+                "message": f"Error uploading processing data to spectrum with id {id}"
+            }
 
-    return {"message": f"Done processing for spectrum with id {id}"}
+        update_status(id, "successful")
+
+        return {"message": f"Done processing for spectrum with id {id}"}
+    except Exception as e:
+        logger.error(e)
+        return {"message": f"Error processing spectrum with id {id}"}
 
 
 def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
@@ -290,53 +301,53 @@ def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
 def handle_thz(spectrum: Spectrum):
     id = spectrum.id
     if spectrum.raw_file is None:
-        communication.update_status(id, "error")
+        update_status(id, "error")
         return {"message": f"Error processing spectrum with id {id}"}
 
     ref_id = communication.retrieve_reference_spectrum_id(sample_id=spectrum.sample.id)
     if ref_id is not None:
         raw_ref_spectrum = communication.get_spectrum(ref_id)
         if raw_ref_spectrum is None:
-            communication.update_status(id, "error")
+            update_status(id, "error")
             return {"message": f"Error retrieving reference spectrum with id {ref_id}"}
 
         ref_spectrum = Spectrum(**json.loads(raw_ref_spectrum)["spectrum"])
         if (ref_spectrum.raw_file) is None:
-            communication.update_status(id, "error")
+            update_status(id, "error")
             return {"message": f"Error getting spectrum file from server"}
         ref_csv = ref_spectrum.to_csv()
         sample_csv = spectrum.to_csv()
-        sample_thickness = spectrum.sample_thickness
 
-        if ref_csv is not None and sample_csv is not None:
-            try:
-                process_thz(ref_csv, sample_csv, sample_thickness)
-                communication.update_status(id, "successful")
-            except Exception as e:
-                logger.error(e)
-                communication.update_status(id, "error")
-        else:
-            communication.update_status(id, "error")
+        if ref_csv is None or sample_csv is None:
+            update_status(id, "error")
+            return {"message": f"Error processing spectrum with id {id}"}
+        try:
+            process_thz(ref_csv, sample_csv, spectrum.sample_thickness)
+            update_status(id, "successful")
+        except Exception as e:
+            logger.error(e)
+            update_status(id, "error")
+            return {"message": f"Error processing spectrum with id {id}"}
 
     else:
         try:
-            if (processed_file := spectrum.to_csv()) is None:
-                communication.update_status(id, "error")
+            if spectrum.csv_file is None:
+                update_status(id, "error")
                 return {"message": f"Error coverting spectrum with id {id}"}
 
             file_patch_response: Response | None = (
-                communication.patch_with_processed_file(id, processed_file)
+                communication.patch_with_processed_file(id, spectrum.csv_file)
             )
 
             if file_patch_response is None:
-                communication.update_status(id, "error")
+                update_status(id, "error")
                 return {
                     "message": f"Error uploading processing data to spectrum with id {id}"
                 }
 
-            communication.update_status(id, "successful")
+            update_status(id, "successful")
             return {"message": f"Done processing for spectrum with id {id}"}
 
         except Exception as e:
             logger.error(e)
-            communication.update_status(id, "error")
+            update_status(id, "error")

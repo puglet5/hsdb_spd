@@ -230,7 +230,7 @@ def update_metadata(self, id: int, metadata: dict) -> Response | None:
 
 
 def retrieve_reference_spectrum_id(
-    sample_id: str | int | None = None,
+    sample_id: str | int,
     spectrum_type: str | None = None,
     spectrum_format: str | None = None,
     processing_status: str | None = None,

@@ -22,6 +22,9 @@ from ..tools.converters import (
     validate_json,
 )
 
+from functools import wraps
+import time
+
 URL: TypeAlias = str
 
 logger = logging.getLogger(__name__)
@@ -56,6 +59,20 @@ class PeakData(TypedDict):
 
 class ProcessingMessage(TypedDict):
     message: str
+    execution_time: NotRequired[float]
+
+
+def timeit(func):
+    @wraps(func)
+    def timeit_wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        total_time = end_time - start_time
+        result["execution_time"] = total_time
+        return result
+
+    return timeit_wrapper
 
 
 @dataclass
@@ -158,6 +175,7 @@ class DatTypeSpectrum(Spectrum):
     ...
 
 
+@timeit
 def process_spectrum(id: int) -> ProcessingMessage:
     """
     Process spectrum with corresponding id and upload resulting file to processed_file in hsdb
@@ -224,7 +242,9 @@ def process_spectrum(id: int) -> ProcessingMessage:
 )
 def process_routine(self, id: int):
     task = process_spectrum(id)
-    communication.update_processing_message(id, task["message"])
+    communication.update_processing_message(
+        id, f'[{task.get("execution_time"):.2f} s.] {task["message"]}'
+    )
     return task
 
 

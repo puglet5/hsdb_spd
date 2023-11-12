@@ -5,7 +5,7 @@ import time
 import numpy as np
 
 import requests
-from celery import shared_task  # type: ignore
+from celery import shared_task
 from requests import Response
 
 from app.config.settings import settings
@@ -211,6 +211,34 @@ def update_status(self, id: int, status: str) -> Response | None:
 def update_metadata(self, id: int, metadata: dict) -> Response | None:
     data = {
         "spectrum[metadata]": json.dumps(metadata, default=np_encoder),
+    }
+
+    headers = {
+        "Authorization": f"Bearer {settings.access_token}",
+    }
+    try:
+        response = requests.patch(
+            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            data=data,
+            headers=headers,
+            timeout=10,
+        )
+        return response
+    except Exception as e:
+        logger.error(e)
+        return None
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 0},
+    name="spectra:update_processing_message",
+)
+def update_processing_message(self, id: int, message: str) -> Response | None:
+    data = {
+        "spectrum[processing_message]": message,
     }
 
     headers = {

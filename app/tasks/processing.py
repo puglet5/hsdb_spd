@@ -54,6 +54,10 @@ class PeakData(TypedDict):
     peaks: list[PeakDatum]
 
 
+class ProcessingMessage(TypedDict):
+    message: str
+
+
 @dataclass
 class Sample:
     id: int
@@ -154,14 +158,7 @@ class DatTypeSpectrum(Spectrum):
     ...
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 0},
-    name="spectra:process_spectrum",
-)
-def process_spectrum(self, id: int) -> dict[str, str]:
+def process_spectrum(id: int) -> ProcessingMessage:
     """
     Process spectrum with corresponding id and upload resulting file to processed_file in hsdb
     """
@@ -202,6 +199,8 @@ def process_spectrum(self, id: int) -> dict[str, str]:
                     id, spectrum.metadata
                 )
 
+        logger.warn([file_patch_response, metadata_patch_response])
+
         if metadata_patch_response is None or file_patch_response is None:
             update_status(id, "error")
             return {
@@ -214,6 +213,19 @@ def process_spectrum(self, id: int) -> dict[str, str]:
     except Exception as e:
         logger.error(e)
         return {"message": f"Error processing spectrum with id {id}"}
+
+
+@shared_task(
+    bind=True,
+    autoretry_for=(Exception,),
+    retry_backoff=True,
+    retry_kwargs={"max_retries": 0},
+    name="spectra:process_routine",
+)
+def process_routine(self, id: int):
+    task = process_spectrum(id)
+    communication.update_processing_message(id, task["message"])
+    return task
 
 
 def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):

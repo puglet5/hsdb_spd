@@ -1,5 +1,6 @@
-from fastapi import APIRouter
 import logging
+
+from fastapi import APIRouter
 
 from app.config.celery_utils import get_task_info
 from app.tasks import processing

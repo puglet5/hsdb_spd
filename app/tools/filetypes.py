@@ -1,5 +1,5 @@
-from typing import Tuple, TypedDict, Pattern
 import re
+from typing import Pattern, Tuple, TypedDict
 
 
 class Filetype(TypedDict):

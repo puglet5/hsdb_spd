@@ -2,8 +2,8 @@ import io
 import json
 import logging
 import time
-import numpy as np
 
+import numpy as np
 import requests
 from celery import shared_task
 from requests import Response

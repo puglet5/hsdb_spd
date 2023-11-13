@@ -1,29 +1,23 @@
-from io import BytesIO
 import json
 import logging
-from typing import TypeAlias, TypedDict, NotRequired, Any
+import time
+from dataclasses import dataclass, field
+from functools import wraps
+from io import BytesIO
+from typing import Any, NotRequired, TypeAlias, TypedDict
+
+import communication
 import numpy as np
 import numpy.typing as npt
-from findpeaks import findpeaks
-
-from celery import shared_task
-import numpy as np
 import pandas as pd
+from celery import shared_task
+from findpeaks import findpeaks
 from requests import Response
-from dataclasses import dataclass, field
 
 from app.config.settings import settings
 
-from ..tasks import communication
 from ..tasks.communication import update_status
-from ..tools.converters import (
-    convert_to_csv,
-    download_file,
-    validate_json,
-)
-
-from functools import wraps
-import time
+from ..tools.converters import convert_to_csv, download_file, validate_json
 
 URL: TypeAlias = str
 

@@ -4,10 +4,10 @@ import os
 import sys
 
 import uvicorn as uvicorn
+from celery.app.task import Task
 from fastapi import FastAPI
 
 from app.config.celery_utils import create_celery
-from celery.app.task import Task
 from app.routers import spectra
 
 Task.__class_getitem__ = classmethod(lambda cls, *args, **kwargs: cls)  # type: ignore[attr-defined]

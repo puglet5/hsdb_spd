@@ -3,13 +3,13 @@ import json
 import logging
 import re
 from io import BytesIO, StringIO
-from typing import Any, TypeAlias
-import chardet
+from typing import Any, Tuple, TypeAlias
 
+import chardet
 import numpy as np
 from requests import Response, get
+
 from .filetypes import filetypes
-from typing import Tuple
 
 logger = logging.getLogger(__name__)
 

@@ -1,7 +1,7 @@
 {
     "_meta": {
         "hash": {
-            "sha256": "be2cb1a7cdfcfef9e4ac06cc3fc9ba3b3fdc96d8897b803b36ea148c2da99bce"
+            "sha256": "28b740ed5d9f86faded3829366b422cb33066c3454fff7cd6bd02bccd08e27d0"
         },
         "pipfile-spec": 6,
         "requires": {
@@ -280,12 +280,12 @@
         },
         "findpeaks": {
             "hashes": [
-                "sha256:5a354e97cfc0238012103681811b5e1a246de4c9ca61e9cac8c4c9e7d0e5b5f7",
-                "sha256:9c663facb7de82e646cfe321a5b52842bce606fe7726282480083dc6ee3f4f0a"
+                "sha256:035027d98e2b17aea9eb9d5cf45dde645a4a04113a561f3b447c83c6ab0acf50",
+                "sha256:9f646cfec35444504bb6ac690c1e8c1c0d0b5937633ad1120a58b587c84d3c7b"
             ],
             "index": "pypi",
             "markers": "python_version >= '3'",
-            "version": "==2.6.0"
+            "version": "==2.5.3"
         },
         "flower": {
             "hashes": [

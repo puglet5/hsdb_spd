@@ -132,7 +132,13 @@ class Spectrum:
                 :, 1
             ]
             self.csv_file.seek(0)
-            fp = findpeaks(method="topology", lookahead=2, denoise="bilateral")
+            fp = findpeaks(
+                method="topology",
+                scale=False,
+                denoise="bilateral",
+                lookahead=2,
+                interpolate=3,
+            )
             if (result := fp.fit(data / np.max(data))) is not None:
                 df: pd.DataFrame = result["df"]
             else:

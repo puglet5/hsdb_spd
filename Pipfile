@@ -25,6 +25,7 @@ honcho = "*"
 bandit = "*"
 pandas-stubs = "*"
 types-requests = "*"
+celery-types = "*"
 
 [requires]
 python_version = "3.11"

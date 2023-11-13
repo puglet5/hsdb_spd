@@ -7,7 +7,10 @@ import uvicorn as uvicorn
 from fastapi import FastAPI
 
 from app.config.celery_utils import create_celery
+from celery.app.task import Task
 from app.routers import spectra
+
+Task.__class_getitem__ = classmethod(lambda cls, *args, **kwargs: cls)  # type: ignore[attr-defined]
 
 sys.path.insert(0, os.path.join(os.getcwd(), "app"))
 

@@ -208,7 +208,7 @@ def update_status(self, id: int, status: str) -> Response | None:
     retry_kwargs={"max_retries": 0},
     name="spectra:update_metadata",
 )
-def update_metadata(self, id: int, metadata: dict) -> Response | None:
+def update_metadata(self, id: int, metadata: dict | str) -> Response | None:
     data = {
         "spectrum[metadata]": json.dumps(metadata, default=np_encoder),
     }

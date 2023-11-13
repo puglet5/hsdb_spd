@@ -210,14 +210,11 @@ def process_spectrum(id: int) -> ProcessingMessage:
 
         metadata_patch_response: Response | None = None
         if validate_json(spectrum.metadata) and spectrum.peak_metadata is not None:
-            if (
-                spectrum.merge_metadata(spectrum.peak_metadata)  # type:ignore
-            ) is not None:
+            spectrum.merge_metadata(spectrum.peak_metadata)  # type:ignore
+            if spectrum.metadata is not None:
                 metadata_patch_response = communication.update_metadata(
                     id, spectrum.metadata
                 )
-
-        logger.warn([file_patch_response, metadata_patch_response])
 
         if metadata_patch_response is None or file_patch_response is None:
             update_status(id, "error")

@@ -264,12 +264,14 @@ def retrieve_reference_spectrum_id(
     processing_status: str | None = None,
 ) -> str | None:
     try:
-        spectra: str = list_spectra(
+        spectra = list_spectra(
             sample_id=sample_id,
             spectrum_type=spectrum_type,
             spectrum_format=spectrum_format,
             processing_status=processing_status,
         )
+        if spectra is None:
+            return None
         ref_id_list: list[str] = [
             x["id"] for x in json.loads(spectra)["spectra"] if x["is_reference"] == True
         ]

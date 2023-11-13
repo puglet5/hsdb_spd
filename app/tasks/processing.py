@@ -182,19 +182,19 @@ def process_spectrum(id: int) -> ProcessingMessage:
     """
     try:
         if (raw_spectrum := communication.get_spectrum(id)) is None:
-            update_status(id, "error")
+            update_status.delay(id, "error")
             return {"message": f"Error retrieving spectrum with {id}"}
 
-        update_status(id, "ongoing")
+        update_status.delay(id, "ongoing")
 
         spectrum = Spectrum(**json.loads(raw_spectrum)["spectrum"])
 
         if spectrum.raw_file is None:
-            update_status(id, "error")
+            update_status.delay(id, "error")
             return {"message": f"Error getting spectrum file from server"}
 
         if (spectrum.csv_file) is None:
-            update_status(id, "error")
+            update_status.delay(id, "error")
             return {"message": f"Error coverting spectrum with id {id}"}
 
         if spectrum.category == "thz":
@@ -217,12 +217,12 @@ def process_spectrum(id: int) -> ProcessingMessage:
                 )
 
         if metadata_patch_response is None or file_patch_response is None:
-            update_status(id, "error")
+            update_status.delay(id, "error")
             return {
                 "message": f"Error uploading processing data to spectrum with id {id}"
             }
 
-        update_status(id, "successful")
+        update_status.delay(id, "successful")
 
         return {"message": f"Done processing for spectrum with id {id}"}
     except Exception as e:
@@ -239,7 +239,7 @@ def process_spectrum(id: int) -> ProcessingMessage:
 )
 def process_routine(self, id: int):
     task = process_spectrum(id)
-    communication.update_processing_message(
+    communication.update_processing_message.delay(
         id, f'[{task.get("execution_time"):.2f} s.] {task["message"]}'
     )
     return task
@@ -330,38 +330,38 @@ def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
 def handle_thz(spectrum: Spectrum):
     id = spectrum.id
     if spectrum.raw_file is None:
-        update_status(id, "error")
+        update_status.delay(id, "error")
         return {"message": f"Error processing spectrum with id {id}"}
 
     ref_id = communication.retrieve_reference_spectrum_id(sample_id=spectrum.sample.id)
     if ref_id is not None:
-        raw_ref_spectrum = communication.get_spectrum(ref_id)
+        raw_ref_spectrum = communication.get_spectrum(int(ref_id))
         if raw_ref_spectrum is None:
             update_status(id, "error")
             return {"message": f"Error retrieving reference spectrum with id {ref_id}"}
 
         ref_spectrum = Spectrum(**json.loads(raw_ref_spectrum)["spectrum"])
         if (ref_spectrum.raw_file) is None:
-            update_status(id, "error")
+            update_status.delay(id, "error")
             return {"message": f"Error getting spectrum file from server"}
         ref_csv = ref_spectrum.to_csv()
         sample_csv = spectrum.to_csv()
 
         if ref_csv is None or sample_csv is None:
-            update_status(id, "error")
+            update_status.delay(id, "error")
             return {"message": f"Error processing spectrum with id {id}"}
         try:
             process_thz(ref_csv, sample_csv, spectrum.sample_thickness)
-            update_status(id, "successful")
+            update_status.delay(id, "successful")
         except Exception as e:
             logger.error(e)
-            update_status(id, "error")
+            update_status.delay(id, "error")
             return {"message": f"Error processing spectrum with id {id}"}
 
     else:
         try:
             if spectrum.csv_file is None:
-                update_status(id, "error")
+                update_status.delay(id, "error")
                 return {"message": f"Error coverting spectrum with id {id}"}
 
             file_patch_response: Response | None = (
@@ -369,14 +369,14 @@ def handle_thz(spectrum: Spectrum):
             )
 
             if file_patch_response is None:
-                update_status(id, "error")
+                update_status.delay(id, "error")
                 return {
                     "message": f"Error uploading processing data to spectrum with id {id}"
                 }
 
-            update_status(id, "successful")
+            update_status.delay(id, "successful")
             return {"message": f"Done processing for spectrum with id {id}"}
 
         except Exception as e:
             logger.error(e)
-            update_status(id, "error")
+            update_status.delay(id, "error")

@@ -1,7 +1,7 @@
 import json
 import logging
 from dataclasses import dataclass
-from io import BytesIO
+from io import BytesIO, StringIO
 from typing import Any
 
 import numpy as np
@@ -220,86 +220,111 @@ def process_routine(self, id: int):
     return task
 
 
-def process_thz(ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float):
+def process_thz(
+    ref_csv: BytesIO, sample_csv: BytesIO, sample_thickness: float
+) -> BytesIO | None:
     """
     Extract refraction and absorption index from THz TDS data.
 
     First file in a `files` tuple must be a reference spectrum.
+
+    Returns n×3 csv data as bytes where columns are frequency in THz, refraction index and absorption index
     """
-    ref_data = pd.read_csv(ref_csv).to_numpy()
-    sample_data = pd.read_csv(sample_csv).to_numpy()
+    try:
+        ref_data = pd.read_csv(ref_csv).to_numpy()
+        sample_data = pd.read_csv(sample_csv).to_numpy()
 
-    ref_range: npt.NDArray[np.float_] = np.array(list(map(minmax, ref_data.T)))
-    sample_range: npt.NDArray[np.float_] = np.array(list(map(minmax, sample_data.T)))
-
-    ref_area: np.float_ = -np.trapz(*np.flip(ref_data.T))
-    sample_area: np.float_ = -np.trapz(*np.flip(sample_data.T))
-
-    scaled_ref_intensity: npt.NDArray[np.float_] = ref_data.T[1] - ref_area / (
-        np.sum(np.abs(ref_range))
-    )
-    scaled_sample_intensity: npt.NDArray[np.float_] = sample_data.T[1] - sample_area / (
-        np.sum(np.abs(sample_range))
-    )
-
-    ref_fft = fft(pad(scaled_ref_intensity, 10000))
-    sample_fft = fft(pad(scaled_sample_intensity, 10000))
-
-    # TODO: validate sampling interval equality for ref and sample
-    sampling_interval = np.diff(np.transpose(ref_data)[0, :2])[0]
-    frequency_inc = 1 / (sampling_interval * len(ref_fft))
-
-    frequencies: npt.NDArray[np.float_] = np.arange(
-        0, 1 / sampling_interval, frequency_inc
-    )
-
-    ref_phase: npt.NDArray[np.float_] = 1 / DEGREE * np.unwrap(np.angle(ref_fft))
-    sample_phase: npt.NDArray[np.float_] = 1 / DEGREE * np.unwrap(np.angle(sample_fft))
-
-    ref_amplitude: npt.NDArray[np.float_] = 1 / len(ref_fft) * np.abs(ref_fft)
-    sample_amplitude: npt.NDArray[np.float_] = 1 / len(sample_fft) * np.abs(sample_fft)
-
-    ref_phase_vs_freq = np.array([frequencies, ref_phase]).T
-    sample_phase_vs_freq = np.array([frequencies, sample_phase]).T
-
-    fit_freq_mask: npt.NDArray[np.bool_] = np.ma.masked_inside(
-        ref_phase_vs_freq[:, 0], *FIT_FREQ_INTERVAL
-    ).mask
-
-    ref_phase_to_fit = ref_phase_vs_freq[fit_freq_mask]
-    sample_phase_to_fit = sample_phase_vs_freq[fit_freq_mask]
-
-    fit_zero_order_coeffs: npt.NDArray[np.float_] = np.array(
-        [
-            np.polyfit(*sample_phase_to_fit.T, 1),  # type: ignore
-            np.polyfit(*ref_phase_to_fit.T, 1),  # type: ignore
-        ]
-    )[:, -1]
-
-    sample_phase_shifted: npt.NDArray[np.float_] = (
-        sample_phase + np.diff(fit_zero_order_coeffs)[0]
-    )
-
-    refraction_index: npt.NDArray[np.float_] = (
-        0.3 * (ref_phase - sample_phase_shifted)
-    ) / SPEED_C / frequencies / sample_thickness + 1
-
-    range_freq_mask: npt.NDArray[np.bool_] = np.ma.masked_inside(
-        ref_phase_vs_freq[:, 0], *COMMON_RANGE_FREQ_INTERVAL
-    ).mask
-
-    absorption_index = (
-        20
-        / sample_thickness
-        * np.log(
-            (4 * refraction_index * ref_amplitude)
-            / ((refraction_index + 1) ** 2 * sample_amplitude)
+        ref_range: npt.NDArray[np.float_] = np.array(list(map(minmax, ref_data.T)))
+        sample_range: npt.NDArray[np.float_] = np.array(
+            list(map(minmax, sample_data.T))
         )
-    )
 
-    return np.array([frequencies, refraction_index, absorption_index]).T[
-        range_freq_mask
-    ]
+        ref_area: np.float_ = -np.trapz(*np.flip(ref_data.T))
+        sample_area: np.float_ = -np.trapz(*np.flip(sample_data.T))
+
+        scaled_ref_intensity: npt.NDArray[np.float_] = ref_data.T[1] - ref_area / (
+            np.sum(np.abs(ref_range))
+        )
+        scaled_sample_intensity: npt.NDArray[np.float_] = sample_data.T[
+            1
+        ] - sample_area / (np.sum(np.abs(sample_range)))
+
+        ref_fft = fft(pad(scaled_ref_intensity, 10000))
+        sample_fft = fft(pad(scaled_sample_intensity, 10000))
+
+        # TODO: validate sampling interval equality for ref and sample
+        sampling_interval = np.diff(np.transpose(ref_data)[0, :2])[0]
+        frequency_inc = 1 / (sampling_interval * len(ref_fft))
+
+        frequencies: npt.NDArray[np.float_] = np.arange(
+            0, 1 / sampling_interval, frequency_inc
+        )
+
+        ref_phase: npt.NDArray[np.float_] = 1 / DEGREE * np.unwrap(np.angle(ref_fft))
+        sample_phase: npt.NDArray[np.float_] = (
+            1 / DEGREE * np.unwrap(np.angle(sample_fft))
+        )
+
+        ref_amplitude: npt.NDArray[np.float_] = 1 / len(ref_fft) * np.abs(ref_fft)
+        sample_amplitude: npt.NDArray[np.float_] = (
+            1 / len(sample_fft) * np.abs(sample_fft)
+        )
+
+        ref_phase_vs_freq = np.array([frequencies, ref_phase]).T
+        sample_phase_vs_freq = np.array([frequencies, sample_phase]).T
+
+        fit_freq_mask: npt.NDArray[np.bool_] = np.ma.masked_inside(
+            ref_phase_vs_freq[:, 0], *FIT_FREQ_INTERVAL
+        ).mask
+
+        ref_phase_to_fit = ref_phase_vs_freq[fit_freq_mask]
+        sample_phase_to_fit = sample_phase_vs_freq[fit_freq_mask]
+
+        fit_zero_order_coeffs: npt.NDArray[np.float_] = np.array(
+            [
+                np.polyfit(*sample_phase_to_fit.T, 1),  # type: ignore
+                np.polyfit(*ref_phase_to_fit.T, 1),  # type: ignore
+            ]
+        )[:, -1]
+
+        sample_phase_shifted: npt.NDArray[np.float_] = (
+            sample_phase + np.diff(fit_zero_order_coeffs)[0]
+        )
+
+        refraction_index: npt.NDArray[np.float_] = (
+            0.3 * (ref_phase - sample_phase_shifted)
+        ) / SPEED_C / frequencies / sample_thickness + 1
+
+        range_freq_mask: npt.NDArray[np.bool_] = np.ma.masked_inside(
+            ref_phase_vs_freq[:, 0], *COMMON_RANGE_FREQ_INTERVAL
+        ).mask
+
+        absorption_index = (
+            20
+            / sample_thickness
+            * np.log(
+                (4 * refraction_index * ref_amplitude)
+                / ((refraction_index + 1) ** 2 * sample_amplitude)
+            )
+        )
+
+        data = np.array([frequencies, refraction_index, absorption_index]).T[
+            range_freq_mask
+        ]
+
+        sio = StringIO()
+
+        np.savetxt(sio, data, delimiter=",")
+
+        sio.seek(0)
+        bio = BytesIO(sio.read().encode("utf8"))
+        sio.close()
+        bio.seek(0)
+
+        return bio
+    except Exception as e:
+        logger.error(e)
+        return None
 
 
 def handle_thz(spectrum: Spectrum):
@@ -338,11 +363,23 @@ def handle_thz(spectrum: Spectrum):
                 "message": f"Error while processing. Sample thickness is not provided"
             }
 
-        try:
-            process_thz(ref_csv, sample_csv, spectrum.sample_thickness)
+        if (
+            thz_data := process_thz(ref_csv, sample_csv, spectrum.sample_thickness)
+        ) is not None:
+            thz_data.name = f'{spectrum.filename.rsplit(".", 1)[0]}_processed.csv'
+            file_patch_response: Response | None = (
+                communication.patch_with_processed_file(id, thz_data)
+            )
+
+            if file_patch_response is None:
+                update_status.delay(id, "error")
+                return {
+                    "message": f"Error uploading processing data to spectrum with id {id}"
+                }
+
             update_status.delay(id, "successful")
-        except Exception as e:
-            logger.error(e)
+            return {"message": f"Done processing for spectrum with id {id}"}
+        else:
             update_status.delay(id, "error")
             return {"message": f"Error processing spectrum with id {id}"}
 

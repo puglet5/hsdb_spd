@@ -6,7 +6,7 @@ from functools import wraps
 from io import BytesIO
 from typing import Any, NotRequired, TypeAlias, TypedDict
 
-import communication
+from ..tasks import communication
 import numpy as np
 import numpy.typing as npt
 import pandas as pd

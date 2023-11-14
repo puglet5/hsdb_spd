@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from functools import wraps
 from io import BytesIO
 from typing import Any, NotRequired, TypeAlias, TypedDict
+from dacite import from_dict
 
 from ..tasks import communication
 import numpy as np
@@ -13,6 +14,7 @@ import pandas as pd
 from celery import shared_task
 from findpeaks import findpeaks
 from requests import Response
+import inspect
 
 from app.config.settings import settings
 
@@ -28,6 +30,7 @@ DEGREE = 0.0174533
 FIT_FREQ_INTERVAL = (0.1, 0.5)
 COMMON_RANGE_FREQ_INTERVAL = (0.2, 1.1)
 SPEED_C = 360
+PARENT_MODEL_NAME = settings.db_parent_model
 
 
 def minmax(x):
@@ -70,7 +73,7 @@ def timeit(func):
 
 
 @dataclass
-class Sample:
+class SpectrumParentModel:
     id: int
     title: str
 
@@ -80,26 +83,26 @@ class Spectrum:
     file_url: URL
     filename: str
     id: int
-    sample: Sample
+    parent: SpectrumParentModel
     format: str
     status: str
     category: str
     range: str
     metadata: str | dict | None
-    sample_thickness: float
+    sample_thickness: float | None
     is_reference: bool
 
-    raw_file: BytesIO | None = field(init=False, default=None)
-    processed_file: BytesIO | None = field(init=False, default=None)
-    csv_file: BytesIO | None = field(init=False, default=None)
-    peaks: npt.NDArray[np.float_] | None = field(init=False, default=None)
-    peak_metadata: PeakData | dict[Any, Any] | None = field(init=False, default=None)
+    raw_file: BytesIO | None
+    processed_file: BytesIO | None
+    csv_file: BytesIO | None
+    peaks: npt.NDArray[np.float_] | None
+    peak_metadata: PeakData | dict[Any, Any] | None
 
     def __post_init__(self):
-        self.sample = Sample(**self.sample)  # type: ignore
-        self.file_url = f"{settings.hsdb_url}{self.file_url}"
+        self.file_url = f"{settings.db_url}{self.file_url}"
         self.raw_file = download_file(self.file_url)
         self.to_csv()
+        logger.warn(self)
 
     def to_csv(self) -> BytesIO | None:
         if self.raw_file is None:
@@ -178,7 +181,7 @@ class DatTypeSpectrum(Spectrum):
 @timeit
 def process_spectrum(id: int) -> ProcessingMessage:
     """
-    Process spectrum with corresponding id and upload resulting file to processed_file in hsdb
+    Process spectrum with corresponding id and upload resulting file to processed_file in db
     """
     try:
         if (raw_spectrum := communication.get_spectrum(id)) is None:
@@ -187,7 +190,15 @@ def process_spectrum(id: int) -> ProcessingMessage:
 
         update_status.delay(id, "ongoing")
 
-        spectrum = Spectrum(**json.loads(raw_spectrum)["spectrum"])
+        spectrum = from_dict(
+            data_class=Spectrum,
+            data={
+                **json.loads(raw_spectrum)["spectrum"],
+                "parent": json.loads(raw_spectrum)["spectrum"][PARENT_MODEL_NAME],
+            },
+        )
+
+        logger.warn(spectrum)
 
         if spectrum.raw_file is None:
             update_status.delay(id, "error")
@@ -333,14 +344,20 @@ def handle_thz(spectrum: Spectrum):
         update_status.delay(id, "error")
         return {"message": f"Error processing spectrum with id {id}"}
 
-    ref_id = communication.retrieve_reference_spectrum_id(sample_id=spectrum.sample.id)
+    ref_id = communication.retrieve_reference_spectrum_id(parent_id=spectrum.parent.id)
     if ref_id is not None:
         raw_ref_spectrum = communication.get_spectrum(int(ref_id))
         if raw_ref_spectrum is None:
             update_status(id, "error")
             return {"message": f"Error retrieving reference spectrum with id {ref_id}"}
 
-        ref_spectrum = Spectrum(**json.loads(raw_ref_spectrum)["spectrum"])
+        ref_spectrum = from_dict(
+            data_class=Spectrum,
+            data={
+                **json.loads(raw_ref_spectrum)["spectrum"],
+                "parent": json.loads(raw_ref_spectrum)["spectrum"][PARENT_MODEL_NAME],
+            },
+        )
         if (ref_spectrum.raw_file) is None:
             update_status.delay(id, "error")
             return {"message": f"Error getting spectrum file from server"}

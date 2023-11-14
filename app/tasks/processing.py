@@ -367,6 +367,13 @@ def handle_thz(spectrum: Spectrum):
         if ref_csv is None or sample_csv is None:
             update_status.delay(id, "error")
             return {"message": f"Error processing spectrum with id {id}"}
+
+        if spectrum.sample_thickness is None:
+            update_status.delay(id, "error")
+            return {
+                "message": f"Error while processing. Sample thickness is not provided"
+            }
+
         try:
             process_thz(ref_csv, sample_csv, spectrum.sample_thickness)
             update_status.delay(id, "successful")

@@ -1,6 +1,6 @@
 # hsdb_sdp
 
-Heritage Science DB Spectral Data Processor
+ITMO DB Spectral Data Processor
 
 ```bash
   sudo apt install pipenv

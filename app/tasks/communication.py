@@ -12,6 +12,8 @@ from app.config.settings import settings
 
 logger = logging.getLogger(__name__)
 
+PARENT_MODEL_NAME = settings.db_parent_model
+
 
 def np_encoder(object):
     if isinstance(object, np.generic):
@@ -27,14 +29,14 @@ def np_encoder(object):
 )
 def get_token(self) -> None:
     form_data = {
-        "email": settings.hsdb_email,
-        "password": settings.hsdb_password,
+        "email": settings.db_email,
+        "password": settings.db_password,
         "grant_type": "password",
-        "client_id": settings.hsdb_client_id,
+        "client_id": settings.db_client_id,
     }
     try:
         response = requests.post(
-            f'{settings.hsdb_url}{"/api/oauth/token"}',
+            f'{settings.db_url}{"/api/oauth/token"}',
             data=form_data,
             timeout=10,
         )
@@ -72,7 +74,7 @@ def login() -> None:
 def list_spectra(
     self,
     *,
-    sample_id: str | int | None = None,
+    parent_id: str | int | None = None,
     spectrum_type: str | None = None,
     spectrum_format: str | None = None,
     processing_status: str | None = None,
@@ -82,7 +84,7 @@ def list_spectra(
     try:
         headers = {"Authorization": f"Bearer {settings.access_token}"}
         response = requests.get(
-            f"{settings.hsdb_url}/api/v1/spectra?by_sample_id={sample_id}?by_type={spectrum_type}?by_format={spectrum_format}?by_status={processing_status}",
+            f"{settings.db_url}/api/v1/spectra?by_parent_id={parent_id}?by_type={spectrum_type}?by_format={spectrum_format}?by_status={processing_status}",
             headers=headers,
             timeout=10,
         )
@@ -106,7 +108,7 @@ def get_spectrum(self, id: int) -> str | None:
         headers = {"Authorization": f"Bearer {settings.access_token}"}
 
         response = requests.get(
-            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            f'{settings.db_url}{"/api/v1/spectra/"}{id}',
             headers=headers,
             timeout=10,
         )
@@ -123,9 +125,9 @@ def get_spectrum(self, id: int) -> str | None:
     retry_kwargs={"max_retries": 0},
     name="spectra:post_spectrum",
 )
-def post_spectrum(sample_id, file_path) -> Response | None:
+def post_spectrum(parent_id, file_path) -> Response | None:
     data = {
-        "spectrum[sample_id]": (None, sample_id),
+        f"spectrum[{PARENT_MODEL_NAME}_id]": (None, parent_id),
     }
 
     files = {"spectrum[file]": open(file_path, "rb")}
@@ -135,7 +137,7 @@ def post_spectrum(sample_id, file_path) -> Response | None:
     }
     try:
         response = requests.post(
-            f'{settings.hsdb_url}{"/api/v1/spectra"}',
+            f'{settings.db_url}{"/api/v1/spectra"}',
             data=data,
             headers=headers,
             files=files,
@@ -162,7 +164,7 @@ def patch_with_processed_file(self, id: int, file: io.BytesIO) -> Response | Non
     }
     try:
         response = requests.patch(
-            f"{settings.hsdb_url}/api/v1/spectra/{id}",
+            f"{settings.db_url}/api/v1/spectra/{id}",
             headers=headers,
             files=files,
             timeout=10,
@@ -190,7 +192,7 @@ def update_status(self, id: int, status: str) -> Response | None:
     }
     try:
         response = requests.patch(
-            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            f'{settings.db_url}{"/api/v1/spectra/"}{id}',
             data=data,
             headers=headers,
             timeout=10,
@@ -218,7 +220,7 @@ def update_metadata(self, id: int, metadata: dict | str) -> Response | None:
     }
     try:
         response = requests.patch(
-            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            f'{settings.db_url}{"/api/v1/spectra/"}{id}',
             data=data,
             headers=headers,
             timeout=10,
@@ -246,7 +248,7 @@ def update_processing_message(self, id: int, message: str) -> Response | None:
     }
     try:
         response = requests.patch(
-            f'{settings.hsdb_url}{"/api/v1/spectra/"}{id}',
+            f'{settings.db_url}{"/api/v1/spectra/"}{id}',
             data=data,
             headers=headers,
             timeout=10,
@@ -258,14 +260,14 @@ def update_processing_message(self, id: int, message: str) -> Response | None:
 
 
 def retrieve_reference_spectrum_id(
-    sample_id: str | int,
+    parent_id: str | int,
     spectrum_type: str | None = None,
     spectrum_format: str | None = None,
     processing_status: str | None = None,
 ) -> str | None:
     try:
         spectra = list_spectra(
-            sample_id=sample_id,
+            parent_id=parent_id,
             spectrum_type=spectrum_type,
             spectrum_format=spectrum_format,
             processing_status=processing_status,

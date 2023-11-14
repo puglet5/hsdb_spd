@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 def create_app() -> FastAPI:
     current_app = FastAPI(
-        title="Heritage Science DB Spectral Data Processor",
+        title="ITMO DB Spectral Data Processor",
         version="0.1.0",
     )
 
@@ -33,5 +33,5 @@ celery = create_celery()
 
 if __name__ == "__main__":
     uvicorn.run(
-        "main:app", port=8000, reload=bool(os.environ.get("HSDB_SDP_DEV", False))
+        "main:app", port=8000, reload=bool(os.environ.get("SDP_DEV", False))
     )

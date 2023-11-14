@@ -18,7 +18,7 @@ async def request_processing(
     record_type: str | None = None,
 ) -> dict:
     """
-    Request spectral data processing for record in hsdb with corresponding type and id
+    Request spectral data processing for record in db with corresponding type and id
     """
     task = processing.process_routine.delay(id)  # type: ignore
     return {

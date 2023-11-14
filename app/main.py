@@ -32,6 +32,4 @@ app = create_app()
 celery = create_celery()
 
 if __name__ == "__main__":
-    uvicorn.run(
-        "main:app", port=8000, reload=bool(os.environ.get("SDP_DEV", False))
-    )
+    uvicorn.run("main:app", port=8000, reload=bool(os.environ.get("SDP_DEV", False)))

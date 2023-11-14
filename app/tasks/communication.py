@@ -9,25 +9,14 @@ from celery import shared_task
 from requests import Response
 
 from app.config.settings import settings
+from app.tools.utils import np_encoder
 
 logger = logging.getLogger(__name__)
 
 PARENT_MODEL_NAME = settings.db_parent_model
 
 
-def np_encoder(object):
-    if isinstance(object, np.generic):
-        return object.item()
-
-
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 5},
-    name="auth:get_token",
-)
-def get_token(self) -> None:
+def get_token() -> None:
     form_data = {
         "email": settings.db_email,
         "password": settings.db_password,
@@ -64,15 +53,7 @@ def login() -> None:
     return None
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 0},
-    name="spectra:list_spectra",
-)
 def list_spectra(
-    self,
     *,
     parent_id: str | int | None = None,
     spectrum_type: str | None = None,
@@ -94,14 +75,7 @@ def list_spectra(
         return None
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 0},
-    name="spectra:get_spectrum",
-)
-def get_spectrum(self, id: int) -> str | None:
+def get_spectrum(id: int) -> str | None:
     login()
 
     try:
@@ -118,13 +92,6 @@ def get_spectrum(self, id: int) -> str | None:
         return None
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 0},
-    name="spectra:post_spectrum",
-)
 def post_spectrum(parent_id, file_path) -> Response | None:
     data = {
         f"spectrum[{PARENT_MODEL_NAME}_id]": (None, parent_id),
@@ -149,14 +116,7 @@ def post_spectrum(parent_id, file_path) -> Response | None:
         return None
 
 
-@shared_task(
-    bind=True,
-    autoretry_for=(Exception,),
-    retry_backoff=True,
-    retry_kwargs={"max_retries": 0},
-    name="spectra:patch_spectrum",
-)
-def patch_with_processed_file(self, id: int, file: io.BytesIO) -> Response | None:
+def patch_with_processed_file(id: int, file: io.BytesIO) -> Response | None:
     files = {"spectrum[processed_file]": file}
 
     headers = {

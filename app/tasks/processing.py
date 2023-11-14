@@ -1,75 +1,39 @@
 import json
 import logging
-import time
-from dataclasses import dataclass, field
-from functools import wraps
+from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, NotRequired, TypeAlias, TypedDict
-from dacite import from_dict
+from typing import Any
 
-from ..tasks import communication
 import numpy as np
 import numpy.typing as npt
 import pandas as pd
 from celery import shared_task
+from dacite import from_dict
 from findpeaks import findpeaks
 from requests import Response
-import inspect
 
 from app.config.settings import settings
+from app.tools.utils import (
+    COMMON_RANGE_FREQ_INTERVAL,
+    DEGREE,
+    FIT_FREQ_INTERVAL,
+    SPEED_C,
+    URL,
+    PeakData,
+    ProcessingMessage,
+    fft,
+    minmax,
+    pad,
+    timeit,
+)
 
+from ..tasks import communication
 from ..tasks.communication import update_status
 from ..tools.converters import convert_to_csv, download_file, validate_json
 
-URL: TypeAlias = str
-
 logger = logging.getLogger(__name__)
 
-
-DEGREE = 0.0174533
-FIT_FREQ_INTERVAL = (0.1, 0.5)
-COMMON_RANGE_FREQ_INTERVAL = (0.2, 1.1)
-SPEED_C = 360
 PARENT_MODEL_NAME = settings.db_parent_model
-
-
-def minmax(x):
-    return [np.min(x), np.max(x)]
-
-
-def pad(x, n):
-    return np.pad(x, (0, n - len(x)), mode="constant")
-
-
-def fft(x):
-    return np.fft.fft(x)
-
-
-class PeakDatum(TypedDict):
-    position: float
-    fwhm: NotRequired[float]
-
-
-class PeakData(TypedDict):
-    peaks: list[PeakDatum]
-
-
-class ProcessingMessage(TypedDict):
-    message: str
-    execution_time: NotRequired[float]
-
-
-def timeit(func):
-    @wraps(func)
-    def timeit_wrapper(*args, **kwargs):
-        start_time = time.perf_counter()
-        result = func(*args, **kwargs)
-        end_time = time.perf_counter()
-        total_time = end_time - start_time
-        result["execution_time"] = total_time
-        return result
-
-    return timeit_wrapper
 
 
 @dataclass

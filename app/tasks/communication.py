@@ -65,7 +65,7 @@ def list_spectra(
     try:
         headers = {"Authorization": f"Bearer {settings.access_token}"}
         response = requests.get(
-            f"{settings.db_url}/api/v1/spectra?by_parent_id={parent_id}?by_type={spectrum_type}?by_format={spectrum_format}?by_status={processing_status}",
+            f"{settings.db_url}/api/v1/spectra?by_{PARENT_MODEL_NAME}_id={parent_id}?by_type={spectrum_type}?by_format={spectrum_format}?by_status={processing_status}",
             headers=headers,
             timeout=10,
         )

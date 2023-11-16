@@ -311,10 +311,17 @@ def process_thz(
         data = np.array([frequencies, refraction_index, absorption_index]).T[
             range_freq_mask
         ]
+        full_data = pd.DataFrame([*data.T, *sample_data.T]).to_numpy().T
 
         sio = StringIO()
 
-        np.savetxt(sio, data, delimiter=",")
+        np.savetxt(
+            sio,
+            full_data,
+            delimiter=",",
+            comments="",
+            header="Frequency (THz),Refraction,Absorption(cm^-1),Optical Delay (ps),Signal",
+        )
 
         sio.seek(0)
         bio = BytesIO(sio.read().encode("utf8"))

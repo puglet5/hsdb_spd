@@ -112,4 +112,14 @@ filetypes: dict[str, Filetype] = {
             re.compile("^[+-]?([0-9]*[,])?[0-9]+\t[+-]?([0-9]*[,])?[0-9]+$"),
         ],
     },
+    "xrf2.txt": {
+        "radix_point": "\\.",
+        "field_delimiter": ", +",
+        "split_indices": (0,),
+        "line_matchers": [
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+, +[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+, +[0-9]+$"),
+            re.compile("^[+-]?([0-9]*[.])?[0-9]+, +[0-9]+$"),
+        ],
+    }
 }

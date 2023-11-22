@@ -66,7 +66,6 @@ class Spectrum:
         self.file_url = f"{settings.db_url}{self.file_url}"
         self.raw_file = download_file(self.file_url)
         self.to_csv()
-        logger.warn(self)
 
     def to_csv(self) -> BytesIO | None:
         if self.raw_file is None:
@@ -161,8 +160,6 @@ def process_spectrum(id: int) -> ProcessingMessage:
                 "parent": json.loads(raw_spectrum)["spectrum"][PARENT_MODEL_NAME],
             },
         )
-
-        logger.warn(spectrum)
 
         if spectrum.raw_file is None:
             update_status.delay(id, "error")

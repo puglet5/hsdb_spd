@@ -27,6 +27,8 @@ bandit = "*"
 pandas-stubs = "*"
 types-requests = "*"
 celery-types = "*"
+pytest = "*"
+httpx = "*"
 
 [requires]
 python_version = "3.11"

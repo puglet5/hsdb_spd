@@ -338,7 +338,7 @@ def handle_thz(spectrum: Spectrum):
         return {"message": f"Error processing spectrum with id {id}"}
 
     ref_id = communication.retrieve_reference_spectrum_id(parent_id=spectrum.parent.id)
-    if ref_id is not None:
+    if ref_id is not None and ref_id != spectrum.id:
         raw_ref_spectrum = communication.get_spectrum(int(ref_id))
         if raw_ref_spectrum is None:
             update_status(id, "error")

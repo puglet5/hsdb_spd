@@ -1,6 +1,6 @@
 import time
 from functools import wraps
-from typing import NotRequired, TypeAlias, TypedDict
+from typing import Literal, NotRequired, TypeAlias, TypedDict
 
 import numpy as np
 
@@ -29,6 +29,7 @@ class PeakData(TypedDict):
 class ProcessingMessage(TypedDict):
     message: str
     execution_time: NotRequired[float]
+    status: Literal["successful", "ongoing", "error"]
 
 
 def np_encoder(object):

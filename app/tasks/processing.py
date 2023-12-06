@@ -174,7 +174,7 @@ def process_spectrum(id: int) -> ProcessingMessage:
             }
 
         if spectrum.category == "thz":
-            handle_thz(spectrum)
+            return handle_thz(spectrum)
 
         spectrum.find_peaks()
         spectrum.construct_peak_metadata()
@@ -343,6 +343,7 @@ def handle_thz(spectrum: Spectrum) -> ProcessingMessage:
         return {"message": "Error while processing", "status": "error"}
 
     ref_id = communication.retrieve_reference_spectrum_id(parent_id=spectrum.parent.id)
+
     if ref_id is not None and ref_id != id:
         raw_ref_spectrum = communication.get_spectrum(int(ref_id))
         if raw_ref_spectrum is None:

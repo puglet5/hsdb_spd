@@ -169,7 +169,7 @@ def process_spectrum(id: int) -> ProcessingMessage:
 
         if (spectrum.csv_file) is None:
             return {
-                "message": "Error coverting",
+                "message": "Error converting",
                 "status": "error",
             }
 

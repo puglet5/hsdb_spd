@@ -89,58 +89,74 @@ def convert_dat(file: BytesIO, filename: str) -> BytesIO | None:
         return None
 
 
+def detect_filetype(file: BytesIO):
+    try:
+        enc = detect_encoding(file)
+        filetype = None
+        for ft in filetypes:
+            res_list = []
+            for r in filetypes[ft]["line_matchers"]:
+                line = file.readline().decode(enc)
+                res = re.match(r, line.strip())
+                res_list.append(res)
+            file.seek(0)
+            if None not in res_list:
+                filetype = filetypes[ft]
+                break
+
+        return filetype
+    except Exception as e:
+        logger.error(f"Error detecting filetype: {e}")
+        return None
+
+
+def detect_encoding(file: BytesIO):
+    enc = chardet.detect(file.read())["encoding"] or "utf-8"
+    file.seek(0)
+    return enc
+
+
 def convert_to_csv(file: BytesIO, filename: str) -> BytesIO | None:
     try:
-        enc = chardet.detect(file.read())["encoding"] or "utf-8"
-        file.seek(0)
-
         with file as f:
-            filetype = None
-            for ft in filetypes:
-                res_list = []
-                for r in filetypes[ft]["line_matchers"]:
-                    line = f.readline().decode(enc)
-                    res = re.match(r, line.strip())
-                    res_list.append(res)
-                f.seek(0)
-                if None not in res_list:
-                    filetype = ft
-                    break
-            if filetype is not None:
-                if filetype == "xrf.dat":
-                    converted = convert_dat(f, filename)
-                    return converted
+            filetype = detect_filetype(f)
+            encoding = detect_encoding(f)
 
-                header, body, *footer = np.split(
-                    f.readlines(), np.asarray(filetypes[filetype]["split_indices"])
-                )
-
-                replacements = [
-                    (filetypes[filetype]["field_delimiter"], ","),
-                    (filetypes[filetype]["radix_point"], "."),
-                ]
-
-                sio = StringIO()
-                csv_writer = csv.writer(sio, delimiter=",")
-
-                for line in body:
-                    parsed_line = multi_sub(replacements, line.decode(enc).strip())
-                    csv_writer.writerow([i.strip() for i in parsed_line.split(",")])
-
-                sio.seek(0)
-
-                bio: BytesIO = BytesIO(sio.read().encode("utf8"))
-
-                sio.close()
-
-                bio.name = f'{filename.rsplit(".", 1)[0]}.csv'
-                bio.seek(0)
-
-                return bio
-
-            else:
+            if filetype is None:
                 logger.error("Error! Unsupported filetype")
                 return None
+
+            if filetype["method"] == "xrf_single_column":
+                converted = convert_dat(f, filename)
+                return converted
+
+            header, body, *footer = np.split(
+                f.readlines(), np.asarray(filetype["split_indices"])
+            )
+
+            replacements = [
+                (filetype["field_delimiter"], ","),
+                (filetype["radix_point"], "."),
+            ]
+
+            sio = StringIO()
+            csv_writer = csv.writer(sio, delimiter=",")
+
+            for line in body:
+                parsed_line = multi_sub(replacements, line.decode(encoding).strip())
+                all_cols = [i.strip() for i in parsed_line.split(",")]
+                csv_writer.writerow([all_cols[i] for i in filetype["columns"]])
+
+            sio.seek(0)
+
+            bio: BytesIO = BytesIO(sio.read().encode("utf8"))
+
+            sio.close()
+
+            bio.name = f'{filename.rsplit(".", 1)[0]}.csv'
+            bio.seek(0)
+
+            return bio
 
     except Exception as e:
         logger.error(e)

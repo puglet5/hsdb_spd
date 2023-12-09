@@ -54,6 +54,16 @@ filetypes: dict[str, Filetype] = {
             re.compile("^[+-]?([0-9]*[.])?[0-9]+[\t][+-]?([0-9]*[.])?[0-9]+$")
         ],
     },
+    "raman2.txt": {
+        "radix_point": "\\.",
+        "field_delimiter": "\t",
+        "split_indices": (1,),
+        "line_matchers": [
+            re.compile(
+                "^wave number\tDark Subtracted\tdark data\tRaw data\tDark Subtracted Pull baseline$"
+            )
+        ],
+    },
     "ftir.dpt": {
         "radix_point": "\\.",
         "field_delimiter": ",",

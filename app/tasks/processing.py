@@ -141,6 +141,28 @@ class DatTypeSpectrum(Spectrum):
     ...
 
 
+def parse_raw_spectrum(raw_spectrum: str):
+    try:
+        parsed_data = json.loads(raw_spectrum)
+        if "spectrum" in parsed_data:
+            spectrum_data = parsed_data["spectrum"]
+        else:
+            spectrum_data = parsed_data
+
+    except Exception as e:
+        logger.warn(e)
+        return None
+
+    spectrum = from_dict(
+        data_class=Spectrum,
+        data={
+            **spectrum_data,
+            "parent": spectrum_data[PARENT_MODEL_NAME],
+        },
+    )
+    return spectrum
+
+
 @timeit
 def process_spectrum(id: int) -> ProcessingMessage:
     """
@@ -149,17 +171,17 @@ def process_spectrum(id: int) -> ProcessingMessage:
     try:
         if (raw_spectrum := communication.get_spectrum(id)) is None:
             return {
-                "message": "Error retrieving spectrum with {id}",
+                "message": "Error retrieving spectrum",
                 "status": "error",
             }
 
-        spectrum = from_dict(
-            data_class=Spectrum,
-            data={
-                **json.loads(raw_spectrum)["spectrum"],
-                "parent": json.loads(raw_spectrum)["spectrum"][PARENT_MODEL_NAME],
-            },
-        )
+        spectrum = parse_raw_spectrum(raw_spectrum)
+
+        if spectrum is None:
+            return {
+                "message": "Error parsing data",
+                "status": "error",
+            }
 
         if spectrum.raw_file is None:
             return {

@@ -51,7 +51,7 @@ class Spectrum:
     format: str
     status: str
     category: str
-    range: str
+    range: str | None
     metadata: str | dict | None
     sample_thickness: float | None
     is_reference: bool

@@ -29,6 +29,7 @@ types-requests = "*"
 celery-types = "*"
 pytest = "*"
 httpx = "*"
+responses = "*"
 
 [requires]
 python_version = "3.11"

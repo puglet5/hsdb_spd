@@ -3,7 +3,6 @@ import json
 import logging
 import time
 
-import numpy as np
 import requests
 from celery import shared_task
 from requests import Response
@@ -16,7 +15,7 @@ logger = logging.getLogger(__name__)
 PARENT_MODEL_NAME = settings.db_parent_model
 
 
-def get_token() -> None:
+def get_token():
     form_data = {
         "email": settings.db_email,
         "password": settings.db_password,
@@ -43,6 +42,8 @@ def get_token() -> None:
         raise Exception(
             f"Authentification failed (response status: {response.status_code})"
         )
+
+    return token_params
 
 
 def login() -> None:

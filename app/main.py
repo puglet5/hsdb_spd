@@ -3,6 +3,7 @@ import logging.config
 import os
 import sys
 
+import coloredlogs
 import uvicorn as uvicorn
 from celery.app.task import Task
 from fastapi import FastAPI
@@ -14,8 +15,9 @@ Task.__class_getitem__ = classmethod(lambda cls, *args, **kwargs: cls)  # type: 
 
 sys.path.insert(0, os.path.join(os.getcwd(), "app"))
 
-logging.config.fileConfig(fname=r"logging.conf", disable_existing_loggers=False)
+logging.basicConfig(filename="./log/main.log", filemode="a")
 logger = logging.getLogger(__name__)
+coloredlogs.install()
 
 
 def create_app() -> FastAPI:

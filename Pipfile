@@ -27,6 +27,7 @@ bandit = "*"
 pandas-stubs = "*"
 types-requests = "*"
 celery-types = "*"
+coloredlogs = "*"
 
 [requires]
 python_version = "3.11"

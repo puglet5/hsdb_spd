@@ -71,8 +71,8 @@ def convert_dat(file: BytesIO, filename: str) -> BytesIO | None:
         output = np.vstack((x_linspace, np.array(y_counts))).T
 
         sio: StringIO = StringIO()
-        csvWriter = csv.writer(sio, delimiter=",")
-        csvWriter.writerows(output)
+        csv_writer = csv.writer(sio, delimiter=",")
+        csv_writer.writerows(output)
 
         sio.seek(0)
 
